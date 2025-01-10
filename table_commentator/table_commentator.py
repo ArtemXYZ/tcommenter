@@ -131,10 +131,6 @@ class TableCommentator:
         self.engine = self._validator(engine, Engine)
         self.name_table: str = self._validator(name_table, str)
         self.schema = self._validator(schema, str)
-        # ***
-        self.table_comments_dict: Union[dict[str, str], None] = None
-        self.column_comments_dict: Union[dict[str, str], None] = None
-        self.all_comments_table_dict: Union[dict[str, str], None] = None
 
     # ***
 
@@ -159,7 +155,7 @@ class TableCommentator:
 
         # Валидация переданного аргумента (соответствует типу данных) для дальнейшей проверки:
         valid_type = self._validator(check_type, type)
-        print(f"check_type: {check_type}, args_elements: {args_elements}")
+        # print(f"check_type: {check_type}, args_elements: {args_elements}")
 
         # Проверяем, все ли элементы имеют один и тот же тип:
         return all(isinstance(element, valid_type) for element in args_elements)
@@ -168,7 +164,7 @@ class TableCommentator:
         """
             Служебный вложенный метод для форматирования sql (передачи необходимых параметров в запрос).
                 На входе:
-                На выходе: .
+                На выходе:.
         """
 
         valid_sql = self._validator(sql, str)
@@ -188,12 +184,12 @@ class TableCommentator:
 
         return mutable_sql
 
-    def _mutation_sql_by_logic(self, param_column_index_or_name: tuple[Union[int, str]]) -> str:  # , table_name: str
+    def _mutation_sql_by_logic(self, param_column_index_or_name: None | tuple[int, str]) -> str:  # , table_name: str
         """
            Метод изменения sql запроса в зависимости от переданных параметров
            (содержит логику вариантов форматирования).
                 На входе:
-                    - param_column_index_or_name: либо только индексы либо имена колонок.
+                    - param_column_index_or_name: либо только индексы, либо имена колонок.
                     - table_name: мя таблицы к которой выполняется запрос.
                 На выходе: готовый запрос.
         """
@@ -284,58 +280,6 @@ class TableCommentator:
 
         self.recorder(mutable_sql_variant)
 
-    def _get_table_comments(self) -> dict[str, str]:  # , table_name: str
-        """
-            Метод (приватный) для получения комментариев к таблицам.
-            На выходе: str, - строка с комментарием к таблице.
-        """
-
-        # Проверка корректности типа данных для введенного значения, переменная - имея таблицы:
-        # check_name_table = self._validator(table_name, str) - устарело
-        mutable_sql = self.SQL_GET_TABLE_COMMENTS.format(table_name=self.name_table)
-
-        # Получаем сырые данные после запроса (список кортежей):
-        table_comment_tuple_list: list[tuple] = self.reader(sql=mutable_sql)
-
-        # Преобразуем (обращаемся к первому элементу в списке (к кортежу, будет всего один всегда) и распаковываем:
-        if table_comment_tuple_list:
-            table_comment = table_comment_tuple_list[0][0]
-        else:
-            table_comment = ''  # Если комментарий отсутствует, возвращаем пустую строку.
-
-        return {'table': table_comment}
-
-    def _get_column_comments(self, *column_index_or_name: Union[int, str]) -> dict[str, dict]:  # Union[int, str]
-        """
-            Метод для получения комментариев к колонкам либо по индексу, либо по имени колонки.
-            Важно:
-                Если передать в параметры индекс и имя колонки - это вызовет исключение!
-                Метод обрабатывает параметры только одного типа (либо только индексы, либо имена колонок).
-            На выходе:
-                словарь с вложенным словарем с комментариями: {'columns': {column: comments}}
-
-        """
-
-        # Значение по умолчанию - получаем все комментарии к колонкам в таблице (без указания индекса или имени):
-        param_column_index_or_name = None or column_index_or_name
-
-        # Проверка корректности типа данных для введенного значения, переменная - имея таблицы:
-        # check_name_table = self._validator(self.name_table, str) -  устарело
-
-        # Изменение sql запроса в зависимости от переданных параметров
-        mutable_sql = self._mutation_sql_by_logic(param_column_index_or_name)  # , table_name: str
-
-        # Преобразование sql_str в тип данных sqlalchemy:
-        final_sql = text(mutable_sql)
-
-        column_comments_tuple_list: list[tuple] = self.reader(sql=final_sql)
-
-        # Генерация словаря из списка кортежей:
-        # Распаковывает кортеж из 2-х элементов (1, 'Alice') принимая первый за key и второй за value:
-        _column_comments_dict = {key: value for key, value in column_comments_tuple_list}
-
-        return {'columns': _column_comments_dict}  # {'columns': {column: comments} }
-
     #  **
 
     def recorder(self, sql: Union[str, text]) -> None:  # sql | text # executer | list[tuple] Union[int, str]
@@ -417,28 +361,60 @@ class TableCommentator:
 
     #  *
 
-    def get_table_comments(self) -> Self:  # или 'TableCommentator' на Python < 3.11., table_name: str
+    def get_table_comments(self) -> dict[str, str]:  # , table_name: str
         """
-            Метод (публичный) для получения комментариев к таблицам.
-            На выходе: str, - строка с комментарием к таблице.
+            Метод для получения комментариев к таблицам.
+            На выходе: str - строка с комментарием к таблице.
         """
 
-        self.table_comments_dict = self._get_table_comments()
-        return self
+        # Проверка корректности типа данных для введенного значения, переменная - имея таблицы:
+        # check_name_table = self._validator(table_name, str) - устарело
+        mutable_sql = self.SQL_GET_TABLE_COMMENTS.format(table_name=self.name_table)
 
-    def get_column_comments(self, *column_index_or_name: str) -> Self:  # -> dict[str, text] , table_name: str
+        # Получаем сырые данные после запроса (список кортежей):
+        table_comment_tuple_list: list[tuple] = self.reader(sql=mutable_sql)
+
+        # Преобразуем (обращаемся к первому элементу в списке (к кортежу, будет всего один всегда) и распаковываем:
+        if table_comment_tuple_list:
+            table_comment = table_comment_tuple_list[0][0]
+        else:
+            table_comment = ''  # Если комментарий отсутствует, возвращаем пустую строку.
+
+        return {'table': table_comment}
+
+    def get_column_comments(self, *column_index_or_name: Union[int, str]) -> dict[str, dict]:  # Union[int, str]
         """
-            Метод (публичный) для получения комментариев к колонкам либо по индексу, либо по имени колонки.
+            Метод для получения комментариев к колонкам либо по индексу, либо по имени колонки.
+            Важно:
                 Если передать в параметры индекс и имя колонки - это вызовет исключение!
                 Метод обрабатывает параметры только одного типа (либо только индексы, либо имена колонок).
-            На выходе - словарь с комментариями
+            На выходе:
+                словарь с вложенным словарем с комментариями: {'columns': {column: comments}}
 
         """
 
-        self.column_comments_dict = self._get_column_comments(column_index_or_name)
-        return self
+        # Значение по умолчанию - получаем все комментарии к колонкам в таблице (без указания индекса или имени):
+        param_column_index_or_name: tuple[int, str] | None = None or column_index_or_name
 
-    def get_all_comments(self) -> Self:  # , schema: str
+        # Проверка корректности типа данных для введенного значения, переменная - имея таблицы:
+        # check_name_table = self._validator(self.name_table, str) -  устарело
+
+        # Изменение sql запроса в зависимости от переданных параметров
+        mutable_sql = self._mutation_sql_by_logic(param_column_index_or_name)  # , table_name: str
+
+        # Преобразование sql_str в тип данных sqlalchemy:
+        final_sql = text(mutable_sql)
+
+        column_comments_tuple_list: list[tuple] = self.reader(sql=final_sql)
+
+        # Генерация словаря из списка кортежей:
+        # Распаковывает кортеж из 2-х элементов (1, 'Alice') принимая первый за key и второй за value:
+        _column_comments_dict = {key: value for key, value in column_comments_tuple_list}
+
+        return {'columns': _column_comments_dict}  # {'columns': {column: comments} }
+
+
+    def get_all_comments(self) -> dict[str, str | dict]:  #  Self , schema: str
         """
             Метод для получения всех комментариев к колонкам и таблицам.
             На выходе - словарь типа:
@@ -453,12 +429,57 @@ class TableCommentator:
         """
 
         # Получение всех комментариев:
-        table_comment = self._get_table_comments()
-        column_comments_dict = self._get_column_comments()
+        table_comment = self.get_table_comments()
+        column_comments_dict = self.get_column_comments()
 
         # Преобразование полученных данных в единый словарь:
-        # на выходе: {'table': set_table_comment, 'columns': column_comments_dict}
-        self.all_comments_table_dict = table_comment | column_comments_dict
-        return self
+        all_comments_table_dict = table_comment | column_comments_dict
+
+        return all_comments_table_dict  # на выходе: {'table': set_table_comment, 'columns': column_comments_dict}
+
+
+
+
+
+
+
+
+
+
+
 
 # ----------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+        # ***
+        # self.table_comments_dict: Union[dict[str, str], None] = None
+        # self.column_comments_dict: Union[dict[str, str], None] = None
+        # self.all_comments_table_dict: Union[dict[str, str], None] = None
+
+
+    # def get_table_comments(self) -> Self:  # или 'TableCommentator' на Python < 3.11., table_name: str
+    #     """
+    #         Метод (публичный) для получения комментариев к таблицам.
+    #         На выходе: str - строка с комментарием к таблице.
+    #     """
+    #
+    #     self.table_comments_dict = self._get_table_comments()
+    #     return self
+
+
+    # def get_column_comments(self, *column_index_or_name: str) -> dict[str, text]:  # Self  , table_name: str
+    #     """
+    #         Метод (публичный) для получения комментариев к колонкам либо по индексу, либо по имени колонки.
+    #             Если передать в параметры индекс и имя колонки - это вызовет исключение!
+    #             Метод обрабатывает параметры только одного типа (либо только индексы, либо имена колонок).
+    #         На выходе - словарь с комментариями
+    #
+    #     """
+    #
+    #     self.column_comments_dict = self._get_column_comments(column_index_or_name)
+    #     return self
