@@ -6,6 +6,7 @@
 """
 
 # ----------------------------------------------------------------------------------------------------------------------
+import re
 from typing import Union, List, Self, Dict, Tuple
 # ---------------------------------- airflow
 # ---------------------------------- Импорт сторонних библиотек
@@ -40,6 +41,7 @@ class TableCommentator:
 
     # COMMENT ON TABLE "schema"."table" IS 'comment'
     SQL_SAVE_COMMENT = """COMMENT ON {0} "{1}"."{2}" IS '{3}'"""  # TABLE
+    SQL_SAVE_COMMENT = """COMMENT ON :table ":schema".":table" IS ':comment'"""
 
     # COMMENT ON COLUMN "schema"."table"."name_table" IS 'comment'
     SQL_SAVE_COMMENT_COLUMN = """COMMENT ON {0} "{1}"."{2}"."{3}" IS '{4}'"""  # COLUMN
@@ -165,6 +167,23 @@ class TableCommentator:
             return value
         else:
             raise TypeError(f'Недопустимый тип данных для аргумента: {value}.')
+
+    @staticmethod
+    def _stop_sql_injections(name: str) -> str:
+        """
+           Метод экранирования sql-инъекций комбинирует в себе 2 подхода увеличивая безопасность:
+           регулярные выражения и проверка на наличие ключевых sql-команд.
+        """
+        # Проверка на разрешённые символы
+        if not re.match(r'^[a-zA-Z0-9_\-\.]+$', name):
+            raise ValueError("Ошибка!Недопустимый символ в проверяемой строке.")
+
+        # Проверка на наличие sql-ключевых слов
+        disallowed_keywords = ["DROP", "CREATE", "ALTER", "INSERT", "UPDATE", "DELETE", "--", ";"]
+        if any(keyword in name.upper() for keyword in disallowed_keywords):
+            raise ValueError("Ошибка!Попытка внедрения sql-инъекции.")
+
+        return name
 
     def _check_all_elements(self, check_type: type, args_elements: any) -> bool:  # *args_elements
         """
@@ -341,7 +360,7 @@ class TableCommentator:
     def reader(self, sql: Union[str, text]) -> List[Tuple]:
         """
             Метод выполняет запросы к базе данных на чтение и возвращает данные.
-            На входе: sql - SQL-запрос в виде строки или объекта sqlalchemy.text.
+            На входе: sql - sql-запрос в виде строки или объекта sqlalchemy.text.
             На выходе: список картежей или [].
                 Возвращает все строки результата в виде списка кортежей.
                 Пример результата:
@@ -351,7 +370,7 @@ class TableCommentator:
                         (3, 'Charlie')
                     ]
             Примечание:
-                При работе с «чистым» SQL через session.execute() результат аналогичен fetchall()
+                При работе с «чистым» sql через session.execute() результат аналогичен fetchall()
                 через engine.connect() и возвращает объекты Row.
         """
 
@@ -636,8 +655,8 @@ class TableCommentator:
 #     return result[0][0] if result else False
 #
 #
-# # Оптимизация SQL-запросов: Использование форматирования строк через .format() в SQL небезопасно.
-# # Замените это на параметризованные запросы SQLAlchemy для предотвращения SQL-инъекций:
+# # Оптимизация sql-запросов: Использование форматирования строк через .format() в sql небезопасно.
+# # Замените это на параметризованные запросы SQLAlchemy для предотвращения sql-инъекций:
 # def get_table_comments(self) -> dict[str, str]:
 #     sql = text("SELECT obj_description(oid) FROM pg_class WHERE relname = :table_name")
 #     table_comment_tuple_list = self.reader(sql.bindparams(table_name=self.name_table))
@@ -651,7 +670,7 @@ class TableCommentator:
 # # Когда использовать bindparam?
 # # Использование bindparam может быть полезным, если:
 # #
-# # Вы хотите создавать SQL-запросы динамически, но при этом избегать уязвимостей.
+# # Вы хотите создавать sql-запросы динамически, но при этом избегать уязвимостей.
 # # Вам нужно задать параметры заранее для последующей подстановки (например,
 # # при многократных вызовах одного запроса с разными параметрами).
 # # Заменяем dict[str, str | dict] на Dict[str, Union[str, Dict]]
@@ -662,3 +681,7 @@ class TableCommentator:
 #         "nested_key": "nested_value"
 #     }
 # }
+
+
+# validation from sql injection
+
