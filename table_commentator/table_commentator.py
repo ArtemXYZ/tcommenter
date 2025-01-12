@@ -1,27 +1,25 @@
+# Copyright (c) 2025 ArtemXYZ
+# This project is licensed under the MIT License - see the LICENSE file for details.
+
 """
     Модуль создания комментариев к таблицам после перезагрузки в них данных.
     Справка:
-    В Пандас используется метод сохранения данных, где под "капотом" перед сохранением сначала удаляется таблица,
+    В pandas используется метод сохранения данных, где под "капотом" перед сохранением сначала удаляется таблица,
     что приводит к потере метаданных таблицы (комментариев).
 """
 
 # ----------------------------------------------------------------------------------------------------------------------
 import re
-from typing import Union, List, Self, Dict, Tuple
-# ---------------------------------- airflow
+from typing import Union, List, Dict, Tuple
+
 # ---------------------------------- Импорт сторонних библиотек
-from sqlalchemy.engine import Engine, Row
-from sqlalchemy import text, bindparam
+from sqlalchemy.engine import Engine
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from sqlalchemy import create_engine
-from sqlalchemy.engine.url import URL
-
-
-# from airflow.providers.postgres.hooks.postgres import PostgresHook
-# from sqlalchemy.ext.asyncio import AsyncEngine
-
 # -------------------------------- Локальные модули
+from table_commentator.sql.postgre_sql import *
+
 
 # ----------------------------------------------------------------------------------------------------------------------
 class TableCommentator:
@@ -39,122 +37,10 @@ class TableCommentator:
         'COLUMN': 'COLUMN',
     }
 
-    # COMMENT ON TABLE "schema"."table" IS 'comment'
-    SQL_SAVE_COMMENT = """COMMENT ON {0} "{1}"."{2}" IS '{3}'"""  # TABLE
-    SQL_SAVE_COMMENT = """COMMENT ON :table ":schema".":table" IS ':comment'"""
-
-    # COMMENT ON COLUMN "schema"."table"."name_table" IS 'comment'
-    SQL_SAVE_COMMENT_COLUMN = """COMMENT ON {0} "{1}"."{2}"."{3}" IS '{4}'"""  # COLUMN
-
-    SQL_GET_TABLE_COMMENTS = """
-        SELECT
-            comments.description AS description
-        FROM
-            pg_class AS all_entity
-        INNER JOIN
-            pg_description AS comments
-        ON 
-            all_entity.oid = comments.objoid 
-        AND 
-            comments.objsubid = 0 
-        AND 
-            all_entity.relname = '{table_name}'
-    """
-
-    SQL_GET_ALL_COLUMN_COMMENTS = """
-        SELECT
-            cols.attname AS column_name, 
-            comments.description AS description
-        FROM
-            pg_class AS all_entity
-        INNER JOIN
-            pg_description AS comments
-        ON 
-            all_entity.oid = comments.objoid 
-        AND 
-            comments.objsubid > 0 
-        AND 
-            all_entity.relname = '{table_name}'
-        INNER JOIN 
-            pg_attribute AS cols                    
-        ON
-            cols.attnum = comments.objsubid 
-        AND
-            cols.attrelid = all_entity.oid      
-    """
-
-    SQL_GET_COLUMN_COMMENTS_BY_INDEX = """
-        SELECT 
-            cols.attname AS column_name,       
-            comments.description AS description         
-        FROM 
-            pg_class AS all_entity
-        INNER JOIN 
-            pg_description AS comments              
-        ON 
-            all_entity.oid = comments.objoid
-        AND
-            comments.objsubid > 0
-        AND
-            all_entity.relname = '{table_name}'
-        INNER JOIN 
-            pg_attribute AS cols                  
-        ON
-            cols.attnum = comments.objsubid 
-        AND
-            cols.attrelid = all_entity.oid      
-        WHERE 
-             comments.objsubid IN ({columns})
-    """
-
-    SQL_GET_COLUMN_COMMENTS_BY_NAME = """
-        SELECT 
-            cols.attname AS column_name, 
-            comments.description AS description    
-        FROM 
-            pg_class AS all_entity
-        INNER JOIN 
-            pg_description AS comments             
-        ON
-            all_entity.oid = comments.objoid 
-        AND 
-            comments.objsubid > 0              
-        AND
-            all_entity.relname = '{table_name}'  
-        INNER JOIN 
-            pg_attribute AS cols                    
-        ON
-            cols.attnum = comments.objsubid 
-        AND
-            cols.attrelid = all_entity.oid
-        WHERE
-             cols.attname IN ({columns})
-    """
-
-    SQL_CHECK_TYPE_ENTITY = """
-        SELECT
-            case
-                    when all_entity.relkind in ('r') then 'table'			
-                    when all_entity.relkind in ('v') then 'view'			
-                    when all_entity.relkind in ('m') then 'mview'
-                    when all_entity.relkind in ('m') then 'index'
-                    when all_entity.relkind in ('m') then 'sequence'
-                    when all_entity.relkind in ('m') then 'toast'
-                    when all_entity.relkind in ('m') then 'composite_type'
-                    when all_entity.relkind in ('m') then 'foreign_table'
-                    when all_entity.relkind in ('m') then 'partitioned_table'
-                    when all_entity.relkind in ('m') then 'partitioned_index'    			
-            end as type_entity		
-        FROM
-        pg_class as all_entity
-        WHERE		
-        all_entity.relname = '{table_name}'	
-    """
-
     def __init__(self, engine: Engine, name_table: str, schema: str):  # | AsyncEngine
         self.engine = self._validator(engine, Engine)
-        self.name_table: str = self._validator(name_table, str)
-        self.schema = self._validator(schema, str)
+        self.name_table: str = self._stop_sql_injections(self._validator(name_table, str))
+        self.schema = self._stop_sql_injections(self._validator(schema, str))
 
     # ***
 
@@ -169,25 +55,39 @@ class TableCommentator:
             raise TypeError(f'Недопустимый тип данных для аргумента: {value}.')
 
     @staticmethod
-    def _stop_sql_injections(name: str) -> str:
+    def _stop_sql_injections(sql_param_string: str) -> str:
         """
-           Метод экранирования sql-инъекций комбинирует в себе 2 подхода увеличивая безопасность:
-           регулярные выражения и проверка на наличие ключевых sql-команд.
+            Метод экранирования sql-инъекций комбинирует в себе 2 подхода увеличивая безопасность:
+            регулярные выражения и проверка на наличие ключевых sql-команд.
+
+            Проверка регулярного выражения:
+                Регулярное выражение ^[a-zA-Z0-9_.\-]+$ разрешает:
+                    Строчные и заглавные латинские буквы (a-z, A-Z),
+                    Цифры (0-9),
+                    Символы _ (подчёркивание),
+                    . (точка),
+                    - (дефис),
+                    Только строки, содержащие эти символы без пробелов, и не допускает пустые строки.
+
+                Это соответствует задаче метода, так как позволяет использовать строки,
+                состоящие из обычных идентификаторов, имён таблиц, колонок или других параметров SQL,
+                но исключает неподходящие символы, такие как кавычки, пробелы или специальные символы,
+                которые могут быть частью SQL-инъекции.
         """
         # Проверка на разрешённые символы
-        if not re.match(r'^[a-zA-Z0-9_\-\.]+$', name):
+        if not re.match(r'^[a-zA-Z0-9_.\-]+$', sql_param_string):
             raise ValueError("Ошибка!Недопустимый символ в проверяемой строке.")
 
         # Проверка на наличие sql-ключевых слов
         disallowed_keywords = ["DROP", "CREATE", "ALTER", "INSERT", "UPDATE", "DELETE", "--", ";"]
-        if any(keyword in name.upper() for keyword in disallowed_keywords):
+        if any(keyword in sql_param_string.upper() for keyword in disallowed_keywords):
             raise ValueError("Ошибка!Попытка внедрения sql-инъекции.")
 
-        return name
+        return sql_param_string
 
     def _check_all_elements(self, check_type: type, args_elements: any) -> bool:  # *args_elements
         """
-            Метод для проверки соответствия условию всех элементов  в выборке.
+            Метод для проверки соответствия условию всех элементов в выборке.
             На входе:
                 - check_type: тип данных для проверки (например, str, int).
                 - *args_elements: произвольное количество аргументов для проверки.
@@ -201,7 +101,7 @@ class TableCommentator:
         # Проверяем, все ли элементы имеют один и тот же тип:
         return all(isinstance(element, valid_type) for element in args_elements)
 
-    def _sql_formatter(self, sql: str, params: tuple = None) -> str:  #
+    def _sql_formatter(self, sql: str, params: tuple = None) -> text:  #
         """
             Служебный вложенный метод для форматирования sql (передачи необходимых параметров в запрос).
                 На входе: необработанный sql.
@@ -216,14 +116,14 @@ class TableCommentator:
 
         # Если указаны параметры, тогда форматируем:
         if params:
-            # valid_table_name = self._validator(table_name, str) - устарело
             valid_params = self._validator(params, tuple)
 
             # Имя колонки (сохраняем последовательность через запятую в кавычках:
             columns_string = ', '.join(f"'{columns}'" for columns in valid_params)
 
-            # Форматирование sql_str с учетом параметров:
-            mutable_sql = valid_sql.format(table_name=self.name_table, columns=columns_string)
+            # Форматирование sql_str с учетом параметров
+            _mutable_sql = valid_sql.format(table_name=self.name_table, columns=columns_string)
+
         else:
             mutable_sql = valid_sql.format(table_name=self.name_table)
 
@@ -250,8 +150,7 @@ class TableCommentator:
 
                     # Форматирование sql_str с учетом параметров:
                     mutable_sql = self._sql_formatter(
-                        sql=self.SQL_GET_COLUMN_COMMENTS_BY_NAME,
-                        # table_name=self.name_table, - устарело.
+                        sql=SQL_GET_COLUMN_COMMENTS_BY_NAME,
                         params=param_column_index_or_name
                     )
 
@@ -270,7 +169,7 @@ class TableCommentator:
 
                     # Форматирование sql_str с учетом параметров:
                     mutable_sql = self._sql_formatter(
-                        sql=self.SQL_GET_COLUMN_COMMENTS_BY_INDEX,
+                        sql=SQL_GET_COLUMN_COMMENTS_BY_INDEX,
                         # table_name=self.name_table, - устарело.
                         params=param_column_index_or_name
                     )
@@ -290,7 +189,7 @@ class TableCommentator:
                 )
         else:
             # Если не вводим ни имя колонки, ни индекс (хотим получить все комментарии ко всем существующим колонкам):
-            mutable_sql = self._sql_formatter(sql=self.SQL_GET_ALL_COLUMN_COMMENTS)  # По умолчанию!
+            mutable_sql = self._sql_formatter(sql=SQL_GET_ALL_COLUMN_COMMENTS)  # По умолчанию!
 
         return mutable_sql
 
@@ -301,7 +200,7 @@ class TableCommentator:
 
         if type_comment == 'COLUMN':
             if name_column:
-                mutable_sql_variant = self.SQL_SAVE_COMMENT_COLUMN.format(
+                mutable_sql_variant = SQL_SAVE_COMMENT_COLUMN.format(
                     self.PARAMS_SQL.get(type_comment),
                     self.schema,
                     self.name_table,
@@ -312,7 +211,7 @@ class TableCommentator:
                 raise ValueError(f'Не передано значение для аргумента: name_column.')
 
         else:
-            mutable_sql_variant = self.SQL_SAVE_COMMENT.format(
+            mutable_sql_variant = SQL_SAVE_COMMENT.format(
                 self.PARAMS_SQL.get(type_comment),
                 self.schema,
                 self.name_table,
@@ -419,7 +318,7 @@ class TableCommentator:
         """
 
         # Определение типа сущности (варианты: 'table', 'view', 'mview'):
-        type_entity = self.reader(self._sql_formatter(self.SQL_CHECK_TYPE_ENTITY))
+        type_entity = self.reader(self._sql_formatter(SQL_CHECK_TYPE_ENTITY))
 
         return type_entity[0][0] if type_entity else None
 
@@ -464,7 +363,7 @@ class TableCommentator:
 
         # Проверка корректности типа данных для введенного значения, переменная - имея таблицы:
         # check_name_table = self._validator(table_name, str) - устарело
-        mutable_sql = self.SQL_GET_TABLE_COMMENTS.format(table_name=self.name_table)
+        mutable_sql = SQL_GET_TABLE_COMMENTS.format(table_name=self.name_table)
 
         # Получаем сырые данные после запроса (список кортежей):
         table_comment_tuple_list: list[tuple] = self.reader(sql=mutable_sql)
@@ -613,75 +512,13 @@ class TableCommentator:
             raise ValueError(f'Отсутствуют данные для обработки. '
                              f'Переданный аргумент ({comments_dict}) не содержит информации')
 
+    def __str__(self):
+        return (f'{self.__class__.__name__}(schema: {self.schema},'
+                f' name_table: {self.name_table}, engine: {self.engine}).'
+                )
 
+    def __repr__(self):
+        return (f'{self.__class__.__name__}(schema: {self.schema},'
+                f' name_table: {self.name_table}, engine: {self.engine}).'
+                )
 # ----------------------------------------------------------------------------------------------------------------------
-# Выявленные ошибки:   d = {'columns': {1: ''}}, в " {1:" - в запросе ошибка так как не существует колонки такой.
-# Необходимо добавить обработку  (надо ли?) валидацию на интеджер для имени колонки наверное.
-# возможно добавить это в следующий выпуск
-# создать тесты в сл выпуске
-
-
-# ***
-# self.table_comments_dict: Union[dict[str, str], None] = None
-# self.column_comments_dict: Union[dict[str, str], None] = None
-# self.all_comments_table_dict: Union[dict[str, str], None] = None
-
-
-# def get_table_comments(self) -> Self:  # или 'TableCommentator' на Python < 3.11., table_name: str
-#     """
-#         Метод (публичный) для получения комментариев к таблицам.
-#         На выходе: str - строка с комментарием к таблице.
-#     """
-#
-#     self.table_comments_dict = self._get_table_comments()
-#     return self
-
-
-# def get_column_comments(self, *column_index_or_name: str) -> dict[str, text]:  # Self  , table_name: str
-#     """
-#         Метод (публичный) для получения комментариев к колонкам либо по индексу, либо по имени колонки.
-#             Если передать в параметры индекс и имя колонки - это вызовет исключение!
-#             Метод обрабатывает параметры только одного типа (либо только индексы, либо имена колонок).
-#         На выходе - словарь с комментариями
-#
-#     """
-#
-#     self.column_comments_dict = self._get_column_comments(column_index_or_name)
-#     return self
-
-# def _validate_table_exists(self) -> bool:
-#     sql = f"SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = '{self.name_table}')"
-#     result = self.reader(sql)
-#     return result[0][0] if result else False
-#
-#
-# # Оптимизация sql-запросов: Использование форматирования строк через .format() в sql небезопасно.
-# # Замените это на параметризованные запросы SQLAlchemy для предотвращения sql-инъекций:
-# def get_table_comments(self) -> dict[str, str]:
-#     sql = text("SELECT obj_description(oid) FROM pg_class WHERE relname = :table_name")
-#     table_comment_tuple_list = self.reader(sql.bindparams(table_name=self.name_table))
-#     table_comment = table_comment_tuple_list[0][0] if table_comment_tuple_list else ''
-#     return {'table': table_comment}
-#
-#
-# sql = text("SELECT * FROM my_table WHERE id = :id")
-# sql = sql.bindparams(bindparam("id", value=42))
-#
-# # Когда использовать bindparam?
-# # Использование bindparam может быть полезным, если:
-# #
-# # Вы хотите создавать sql-запросы динамически, но при этом избегать уязвимостей.
-# # Вам нужно задать параметры заранее для последующей подстановки (например,
-# # при многократных вызовах одного запроса с разными параметрами).
-# # Заменяем dict[str, str | dict] на Dict[str, Union[str, Dict]]
-#
-# my_dict: Dict[str, Union[str, Dict]] = {
-#     "key1": "value",
-#     "key2": {
-#         "nested_key": "nested_value"
-#     }
-# }
-
-
-# validation from sql injection
-
