@@ -11,7 +11,7 @@
 
 # ----------------------------------------------------------------------------------------------------------------------
 import re
-
+from typing import Union
 # ---------------------------------- Импорт сторонних библиотек
 from sqlalchemy.engine import Engine
 from sqlalchemy import text
@@ -45,7 +45,7 @@ class TableCommentator:
     # ***
 
     @staticmethod
-    def _validator(value: any, check_type: any) -> any:
+    def _validator(value: any, *check_type: any) -> any:
         """
             Проверка на корректную передачу входных параметров с требуемым типом данных.
         """
@@ -61,7 +61,7 @@ class TableCommentator:
             регулярные выражения и проверка на наличие ключевых sql-команд.
 
             Проверка регулярного выражения:
-                Регулярное выражение ^[a-zA-Z0-9_.\-]+$ разрешает:
+                Регулярное выражение ^[a-zA-Z0-9_.\\-]+$ разрешает:
                     Строчные и заглавные латинские буквы (a-z, A-Z),
                     Цифры (0-9),
                     Символы _ (подчёркивание),
@@ -85,21 +85,24 @@ class TableCommentator:
 
         return sql_param_string
 
-    def _check_all_elements(self, check_type: type, args_elements: any) -> bool:  # *args_elements
+    def _check_all_elements(self, check_type: type, args_array: dict | list | tuple) -> bool:  # *args_elements
         """
             Метод для проверки соответствия условию всех элементов в выборке.
             На входе:
                 - check_type: тип данных для проверки (например, str, int).
-                - *args_elements: произвольное количество аргументов для проверки.
+                - args_elements: произвольное количество аргументов для проверки.
             На выходе: True, если все элементы соответствуют типу; иначе False.
         """
 
+        # todo: args_elements: any - нельзя делать любой тип (добавить исключения).
+
         # Валидация переданного аргумента (соответствует типу данных) для дальнейшей проверки:
         valid_type = self._validator(check_type, type)
+        valid_args_array = self._validator(args_array, (dict, list, tuple,))
         # print(f"check_type: {check_type}, args_elements: {args_elements}")
 
         # Проверяем, все ли элементы имеют один и тот же тип:
-        return all(isinstance(element, valid_type) for element in args_elements)
+        return all(isinstance(element, valid_type) for element in valid_args_array)
 
     def _sql_formatter(self, sql: str, params: tuple = None) -> text:  #
         """
@@ -224,12 +227,12 @@ class TableCommentator:
 
         self.recorder(mutable_sql_variant)
 
-    def _set_column_comment(self, comments_columns_dict: Dict) -> None:
+    def _set_column_comment(self, comments_columns_dict: dict) -> None:
         """
             Метод для создания комментариев к COLUMN.
         """
 
-        if self._validator(comments_columns_dict, Dict):
+        if self._validator(comments_columns_dict, dict):
 
             for key_name_column, value_comment in comments_columns_dict.items():
                 self._create_comment(type_comment='COLUMN', comment=value_comment, name_column=key_name_column)
@@ -239,7 +242,7 @@ class TableCommentator:
 
     #  **
 
-    def recorder(self, sql: str | text) -> None:  # list[tuple]
+    def recorder(self, sql: Union[str, text]) -> None:  # list[tuple]
         """
            Метод выполняет запросы к базе данных на запись.
         """
@@ -256,7 +259,7 @@ class TableCommentator:
         except SQLAlchemyError as e:
             raise RuntimeError(f"Error executing query: {e}")
 
-    def reader(self, sql: str | text) -> list[tuple]:
+    def reader(self, sql: Union[str, text]) -> list[tuple]:
         """
             Метод выполняет запросы к базе данных на чтение и возвращает данные.
             На входе: sql - sql-запрос в виде строки или объекта sqlalchemy.text.
