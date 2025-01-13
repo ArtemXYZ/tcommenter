@@ -32,9 +32,9 @@
 """
 
 # import unittest
-# import pytest
+import pytest
 # from typing import Optional
-from DAGs.table_commentator.table_commentator import TableCommentator
+from table_commentator.table_commentator import TableCommentator
 from tests.connnections.connection import ENGINE_MART_SV
 
 table_comment = {'table': 'Таблица содержит выгрузку данных из Airflow по имеющимся дагам (все доступные атрибуты).'}
