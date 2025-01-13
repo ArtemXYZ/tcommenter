@@ -2,6 +2,7 @@
 # This project is licensed under the MIT License - see the LICENSE file for details.
 
 """
+    todo: Поправить описание.
     Модуль создания комментариев к таблицам после перезагрузки в них данных.
     Справка:
     В pandas используется метод сохранения данных, где под "капотом" перед сохранением сначала удаляется таблица,
@@ -76,12 +77,12 @@ class TableCommentator:
         """
         # Проверка на разрешённые символы
         if not re.match(r'^[a-zA-Z0-9_.\-]+$', sql_param_string):
-            raise ValueError("Ошибка!Недопустимый символ в проверяемой строке.")
+            raise ValueError("Ошибка! Недопустимый символ в проверяемой строке.")
 
         # Проверка на наличие sql-ключевых слов
         disallowed_keywords = ["DROP", "CREATE", "ALTER", "INSERT", "UPDATE", "DELETE", "--", ";"]
         if any(keyword in sql_param_string.upper() for keyword in disallowed_keywords):
-            raise ValueError("Ошибка!Попытка внедрения sql-инъекции.")
+            raise ValueError("Ошибка! Попытка внедрения sql-инъекции.")
 
         return sql_param_string
 
@@ -129,7 +130,7 @@ class TableCommentator:
 
         return mutable_sql
 
-    def _mutation_sql_by_logic(self, param_column_index_or_name: Union[None, Tuple[Union[int, str]]]) -> str:
+    def _mutation_sql_by_logic(self, param_column_index_or_name: None | tuple[int, str]) -> str:
         """
            Метод изменения sql запроса в зависимости от переданных параметров
            (содержит логику вариантов форматирования).
@@ -239,7 +240,7 @@ class TableCommentator:
 
     #  **
 
-    def recorder(self, sql: Union[str, text]) -> None:  # list[tuple] Union[int, str]
+    def recorder(self, sql: str | text) -> None:  # list[tuple]
         """
            Метод выполняет запросы к базе данных на запись.
         """
@@ -256,7 +257,7 @@ class TableCommentator:
         except SQLAlchemyError as e:
             raise RuntimeError(f"Error executing query: {e}")
 
-    def reader(self, sql: Union[str, text]) -> List[Tuple]:
+    def reader(self, sql: str | text) -> list[tuple]:
         """
             Метод выполняет запросы к базе данных на чтение и возвращает данные.
             На входе: sql - sql-запрос в виде строки или объекта sqlalchemy.text.
@@ -355,7 +356,7 @@ class TableCommentator:
 
     #  *
 
-    def get_table_comments(self) -> Dict[str, str]:
+    def get_table_comments(self) -> dict[str, str]:
         """
             Метод для получения комментариев к таблицам.
             На выходе: str - строка с комментарием к таблице.
@@ -376,7 +377,7 @@ class TableCommentator:
 
         return {'table': table_comment}
 
-    def get_column_comments(self, *column_index_or_name: Union[int, str]) -> Dict[str, Dict]:  # dict[str, dict]
+    def get_column_comments(self, *column_index_or_name: int | str) -> dict[str, dict]:  # dict[str, dict]
         """
             Метод для получения комментариев к колонкам либо по индексу, либо по имени колонки.
 
@@ -390,7 +391,7 @@ class TableCommentator:
         """
 
         # Значение по умолчанию - получаем все комментарии к колонкам в таблице (без указания индекса или имени):
-        param_column_index_or_name: Tuple[int, str] | None = None or column_index_or_name
+        param_column_index_or_name: tuple[int, str] | None = None or column_index_or_name
 
         # Проверка корректности типа данных для введенного значения, переменная - имея таблицы:
         # check_name_table = self._validator(self.name_table, str) -  устарело
@@ -401,7 +402,7 @@ class TableCommentator:
         # Преобразование sql_str в тип данных sqlalchemy:
         final_sql = text(mutable_sql)
 
-        column_comments_tuple_list: List[Tuple] = self.reader(sql=final_sql)
+        column_comments_tuple_list: list[tuple] = self.reader(sql=final_sql)
 
         # Генерация словаря из списка кортежей:
         # Распаковывает кортеж из 2-х элементов (1, 'Alice') принимая первый за key и второй за value:
@@ -409,7 +410,7 @@ class TableCommentator:
 
         return {'columns': _column_comments_dict}  # {'columns': {column: comments} }
 
-    def get_all_comments(self) -> Dict[str, Union[str, Dict]]:
+    def get_all_comments(self) -> dict[str, str | dict]:
         """
             Метод для получения всех комментариев к колонкам и таблицам.
             На выходе - словарь типа:
@@ -432,7 +433,7 @@ class TableCommentator:
 
         return all_comments_table_dict  # на выходе: {'table': set_table_comment, 'columns': column_comments_dict}
 
-    def save_comments(self, comments_dict: Dict[str, Union[str, Dict]]) -> None:  # Self , schema: str
+    def save_comments(self, comments_dict: dict[str, str | dict]) -> None:  # Self , schema: str
         """
             Метод для сохранения комментариев, предварительно полученных методами класса из объекта в базе данных
             (таблицы, представления, материализованные представления).
@@ -463,7 +464,7 @@ class TableCommentator:
         if comments_dict:
 
             # Валидация на тип данных входных аргументов (только если словарь, продолжаем дальше обработку):
-            comments_dict = self._validator(comments_dict, Dict)
+            comments_dict = self._validator(comments_dict, dict)
 
             # Определение типа сущности (варианты: 'table', 'view', 'mview'):
             type_entity = self.get_type_entity_in_db()
