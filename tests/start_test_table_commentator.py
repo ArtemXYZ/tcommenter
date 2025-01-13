@@ -1,4 +1,4 @@
-from DAGs.table_commentator.table_commentator import TableCommentator
+from table_commentator.table_commentator import TableCommentator
 from tests.connnections.connection import ENGINE_MART_SV
 
 comments = TableCommentator(engine=ENGINE_MART_SV, name_table='dags_analyzer', schema='audit')

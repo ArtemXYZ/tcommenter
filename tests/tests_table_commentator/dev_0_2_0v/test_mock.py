@@ -68,32 +68,93 @@ def test_get_instance_class(mocked_engine):
 
 
 
-# ---------------- Не требуют подключения:
+# ------------------------------------- Не требуют подключения:
+# +
 def test__validator(mocked_engine):    # +
     test_ex = get_instance_class(mocked_engine)
+    # 1
     assert test_ex._validator('qqqq', str)
+    # 2
     with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:."):
         test_ex._validator('qqqq', dict, int)
+    # 3
     assert test_ex._validator('qqqq', str, int)
 
-
+# +
 def test__check_all_elements(mocked_engine):
     test_ex = get_instance_class(mocked_engine)
-    # with pytest.raises(TypeError,):
-    #     assert test_ex._check_all_elements(check_type=str, args_array='test')
+    # 1
+    with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:" ):
+        assert test_ex._check_all_elements(check_type=str, args_array='test')
+    # 2
     assert test_ex._check_all_elements(check_type=str, args_array=['test', 'test'])
-    # assert test_ex._check_all_elements(check_type=str, args_array={'test': 'test'})
-    # with pytest.raises(TypeError, match="'int' object is not iterable"):
-    #     test_ex._check_all_elements(check_type=str, args_array=1)
+    # 3
+    assert test_ex._check_all_elements(check_type=str, args_array={'test': 'test'})
+    # 4
+    with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:"):
+        test_ex._check_all_elements(check_type=str, args_array=1)
 
 
+def test__stop_sql_injections(mocked_engine):
+    test_ex = get_instance_class(mocked_engine)
 
+    # 1
+    with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
+        assert test_ex._stop_sql_injections('')  #  todo изменить поведение (пропускать пустой символ?)
 
-# def test__stop_sql_injections(mocked_engine):
-#     test_ex = get_instance_class(mocked_engine)
-#     assert test_ex._stop_sql_injections(check_type=str, args_elements=['eeee', 'wert'])
+    # 2
+    with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
+        assert test_ex._stop_sql_injections(' - ')
 
+    # 3
+    assert test_ex._stop_sql_injections('-')
 
+    # 4
+    with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
+        assert test_ex._stop_sql_injections('--')
+
+    # 5
+    with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
+        assert test_ex._stop_sql_injections('*')
+
+    # 6
+    with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
+        assert test_ex._stop_sql_injections(';')
+
+    # 7
+    with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
+        assert test_ex._stop_sql_injections('DROP')
+
+    # 8
+    with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
+        assert test_ex._stop_sql_injections('CREATE')
+
+    # 9
+    with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
+        assert test_ex._stop_sql_injections('ALTER')
+
+    # 10
+    with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
+        assert test_ex._stop_sql_injections('INSERT')
+
+    # 11
+    with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
+        assert test_ex._stop_sql_injections('UPDATE')
+
+    # 12
+    with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
+        assert test_ex._stop_sql_injections('DELETE')
+
+    # 13
+    assert test_ex._stop_sql_injections('DELET')
+
+    # 14
+    with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:"):
+        assert test_ex._stop_sql_injections(1)
+
+    # 15
+    with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
+        assert test_ex._stop_sql_injections('sdfdksdsd---*D\\')
 
 
 # ----------------------------------------------------------------------------------------------------------------------

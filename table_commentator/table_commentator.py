@@ -54,8 +54,8 @@ class TableCommentator:
         else:
             raise TypeError(f'Недопустимый тип данных для аргумента: {value}.')
 
-    @staticmethod
-    def _stop_sql_injections(sql_param_string: str) -> str:
+
+    def _stop_sql_injections(self, sql_param_string: str) -> str:
         """
             Метод экранирования sql-инъекций комбинирует в себе 2 подхода увеличивая безопасность:
             регулярные выражения и проверка на наличие ключевых sql-команд.
@@ -74,6 +74,9 @@ class TableCommentator:
                 но исключает неподходящие символы, такие как кавычки, пробелы или специальные символы,
                 которые могут быть частью SQL-инъекции.
         """
+
+        sql_param_string = self._validator(sql_param_string, str)
+
         # Проверка на разрешённые символы
         if not re.match(r'^[a-zA-Z0-9_.\-]+$', sql_param_string):
             raise ValueError("Ошибка! Недопустимый символ в проверяемой строке.")
@@ -90,16 +93,14 @@ class TableCommentator:
             Метод для проверки соответствия условию всех элементов в выборке.
             На входе:
                 - check_type: тип данных для проверки (например, str, int).
-                - args_elements: произвольное количество аргументов для проверки.
+                - args_array: dict | list | tuple, массив аргументов для проверки поэлементно.
             На выходе: True, если все элементы соответствуют типу; иначе False.
         """
 
-        # todo: args_elements: any - нельзя делать любой тип (добавить исключения).
-
         # Валидация переданного аргумента (соответствует типу данных) для дальнейшей проверки:
         valid_type = self._validator(check_type, type)
+        # Разрешенные типы для args_array:
         valid_args_array = self._validator(args_array, (dict, list, tuple,))
-        # print(f"check_type: {check_type}, args_elements: {args_elements}")
 
         # Проверяем, все ли элементы имеют один и тот же тип:
         return all(isinstance(element, valid_type) for element in valid_args_array)
