@@ -18,7 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 # -------------------------------- Локальные модули
-from table_commentator.sql.postgre_sql import *
+from .sql.postgre_sql import *
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -30,6 +30,7 @@ class TableCommentator:
         что приводит к потере метаданных таблицы (комментариев).
     """
 
+    # Обеспечивает безопасный ввод параметров конструкции SQL для типа сущности:
     PARAMS_SQL = {
         'TABLE': 'TABLE',
         'VIEW': 'VIEW',
@@ -39,7 +40,7 @@ class TableCommentator:
 
     def __init__(self, engine: Engine, name_table: str, schema: str):  # | AsyncEngine
         self.engine = self._validator(engine, Engine)
-        self.name_table: str = self._stop_sql_injections(self._validator(name_table, str))
+        self.name_entity: str = self._stop_sql_injections(self._validator(name_table, str))
         self.schema = self._stop_sql_injections(self._validator(schema, str))
 
     # ***
@@ -126,10 +127,10 @@ class TableCommentator:
             columns_string = ', '.join(f"'{columns}'" for columns in valid_params)
 
             # Форматирование sql_str с учетом параметров
-            _mutable_sql = valid_sql.format(table_name=self.name_table, columns=columns_string)
+            _mutable_sql = valid_sql.format(table_name=self.name_entity, columns=columns_string)
 
         else:
-            mutable_sql = valid_sql.format(table_name=self.name_table)
+            mutable_sql = valid_sql.format(table_name=self.name_entity)
 
         return mutable_sql
 
@@ -205,20 +206,21 @@ class TableCommentator:
         if type_comment == 'COLUMN':
             if name_column:
                 mutable_sql_variant = SQL_SAVE_COMMENT_COLUMN.format(
-                    self.PARAMS_SQL.get(type_comment),
-                    self.schema,
-                    self.name_table,
-                    name_column,
-                    self._validator(comment, str)
+                    entity_type=self.PARAMS_SQL.get(type_comment),
+                    schema=self.schema,
+                    name_entity=self.name_entity,
+                    name_column=name_column,
+
                 )
             else:
                 raise ValueError(f'Не передано значение для аргумента: name_column.')
 
+        # Если комментарий не для колонки, значит для любой другой сущности (таблица, представление, ...)
         else:
             mutable_sql_variant = SQL_SAVE_COMMENT.format(
                 self.PARAMS_SQL.get(type_comment),
                 self.schema,
-                self.name_table,
+                self.name_entity,
                 self._validator(comment, str)
             )
 
@@ -226,7 +228,7 @@ class TableCommentator:
             # with self.engine.connect() as conn:
             #     conn.execute(text(mutable_sql))
 
-        self.recorder(mutable_sql_variant)
+        self.recorder(mutable_sql_variant, self._validator(comment, str) or None)
 
     def _set_column_comment(self, comments_columns_dict: dict) -> None:
         """
@@ -236,6 +238,8 @@ class TableCommentator:
         if self._validator(comments_columns_dict, dict):
 
             for key_name_column, value_comment in comments_columns_dict.items():
+                # todo: в _create_comment убрать comment и name_column передавать dict не канает так как для таблицы
+                #  нет колоки либо разделять методы либо придумывать что то другое.
                 self._create_comment(type_comment='COLUMN', comment=value_comment, name_column=key_name_column)
         else:
             raise ValueError(f'Аргумент "comments_columns_dict" не содержит значения,'
@@ -243,24 +247,30 @@ class TableCommentator:
 
     #  **
 
-    def recorder(self, sql: Union[str, text]) -> None:  # list[tuple]
+    def recorder(self, sql: Union[str, text], **params: str | int) -> None:  # # todo: аннотация не верна!
         """
            Метод выполняет запросы к базе данных на запись.
         """
 
+        _params = params or None
+        engine: Engine = self.engine
+
         try:
-            engine: Engine = self.engine
 
             if isinstance(sql, str):
                 sql = text(sql)
 
             with engine.connect() as conn:
                 with conn.begin():
-                    conn.execute(sql)
+
+                    if _params:
+                        conn.execute(sql, _params)
+                    else:
+                        conn.execute(sql)
         except SQLAlchemyError as e:
             raise RuntimeError(f"Error executing query: {e}")
 
-    def reader(self, sql: Union[str, text]) -> list[tuple]:
+    def reader(self, sql: Union[str, text], **params: str | int) -> list[tuple]:
         """
             Метод выполняет запросы к базе данных на чтение и возвращает данные.
             На входе: sql - sql-запрос в виде строки или объекта sqlalchemy.text.
@@ -277,6 +287,7 @@ class TableCommentator:
                 через engine.connect() и возвращает объекты Row.
         """
 
+        _params = params or None
         engine: Engine = self.engine
 
         try:
@@ -286,8 +297,10 @@ class TableCommentator:
 
             with engine.connect() as conn:
                 with conn.begin():
-                    result = conn.execute(sql)
-
+                    if _params:
+                        result = conn.execute(sql, _params)
+                    else:
+                        result = conn.execute(sql)
         except SQLAlchemyError as e:
             raise RuntimeError(f"Error executing query: {e}")
 
@@ -302,7 +315,10 @@ class TableCommentator:
             Метод для создания сырых запросов на запись данных.
         """
 
-        self.recorder(sql)
+        # Проверка на инъекции:
+        _sql = self._stop_sql_injections(sql)
+        self.recorder(_sql)
+        return None
 
     def get_type_entity_in_db(self) -> str:
         """
@@ -367,7 +383,7 @@ class TableCommentator:
 
         # Проверка корректности типа данных для введенного значения, переменная - имея таблицы:
         # check_name_table = self._validator(table_name, str) - устарело
-        mutable_sql = SQL_GET_TABLE_COMMENTS.format(table_name=self.name_table)
+        mutable_sql = SQL_GET_TABLE_COMMENTS.format(table_name=self.name_entity)
 
         # Получаем сырые данные после запроса (список кортежей):
         table_comment_tuple_list: list[tuple] = self.reader(sql=mutable_sql)
@@ -518,11 +534,11 @@ class TableCommentator:
 
     def __str__(self):
         return (f'{self.__class__.__name__}(schema: {self.schema},'
-                f' name_table: {self.name_table}, engine: {self.engine}).'
+                f' name_table: {self.name_entity}, engine: {self.engine}).'
                 )
 
     def __repr__(self):
         return (f'{self.__class__.__name__}(schema: {self.schema},'
-                f' name_table: {self.name_table}, engine: {self.engine}).'
+                f' name_table: {self.name_entity}, engine: {self.engine}).'
                 )
 # ----------------------------------------------------------------------------------------------------------------------

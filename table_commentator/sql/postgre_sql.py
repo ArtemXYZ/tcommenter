@@ -3,12 +3,12 @@
 """
 
 
-# COMMENT ON TABLE "schema"."table" IS 'comment'
-SQL_SAVE_COMMENT = """COMMENT ON {0} "{1}"."{2}" IS '{3}'"""  # TABLE
-# SQL_SAVE_COMMENT = """COMMENT ON :table ":schema".":table" IS ':comment'"""
+# COMMENT ON TABLE "schema"."table" IS 'comment'  для любой сущности (таблица, представление, ...)
+SQL_SAVE_COMMENT = """COMMENT ON {entity_type} "{schema}"."{name_entity}" IS ':comment'"""
 
-# COMMENT ON COLUMN "schema"."table"."name_table" IS 'comment'
-SQL_SAVE_COMMENT_COLUMN = """COMMENT ON {0} "{1}"."{2}"."{3}" IS '{4}'"""  # COLUMN
+
+# COMMENT ON COLUMN "schema"."name_entity"."name_column" IS 'comment' # Для колонок в любой сущности:
+SQL_SAVE_COMMENT_COLUMN = """COMMENT ON {entity_type} "{schema}"."{name_entity}"."{name_column}" IS ':comment'"""  # COLUMN
 
 SQL_GET_TABLE_COMMENTS = """
     SELECT
@@ -68,7 +68,7 @@ SQL_GET_COLUMN_COMMENTS_BY_INDEX = """
     AND
         cols.attrelid = all_entity.oid      
     WHERE 
-         comments.objsubid IN ({columns})
+         comments.objsubid IN (:columns)
 """
 
 SQL_GET_COLUMN_COMMENTS_BY_NAME = """
@@ -92,7 +92,7 @@ SQL_GET_COLUMN_COMMENTS_BY_NAME = """
     AND
         cols.attrelid = all_entity.oid
     WHERE
-         cols.attname IN (:columns)
+         cols.attname IN (':columns')
 """
 
 SQL_CHECK_TYPE_ENTITY = """
@@ -114,3 +114,14 @@ SQL_CHECK_TYPE_ENTITY = """
     WHERE		
     all_entity.relname = '{table_name}'	
 """
+
+
+
+# ---------------------- old
+
+# COMMENT ON TABLE "schema"."table" IS 'comment' для любой сущности (таблица, представление, ...)
+# SQL_SAVE_COMMENT = """COMMENT ON {0} "{1}"."{2}" IS '{3}'"""  # TABLE
+
+
+# COMMENT ON COLUMN "schema"."table"."name_table" IS 'comment' # Для колонок в любой сущности:
+# SQL_SAVE_COMMENT_COLUMN = """COMMENT ON {0} "{1}"."{2}"."{3}" IS '{4}'"""  # COLUMN

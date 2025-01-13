@@ -37,7 +37,7 @@ from unittest.mock import MagicMock, patch
 from sqlalchemy import text
 from sqlalchemy.engine.base import Engine
 from table_commentator.table_commentator import TableCommentator
-
+from table_commentator.sql.postgre_sql import *
 # from tests.connnections.connection import ENGINE_MART_SV
 
 table_comment = {'table': 'Таблица содержит выгрузку данных из Airflow по имеющимся дагам (все доступные атрибуты).'}
@@ -60,14 +60,18 @@ def mocked_engine():
 def get_instance_class(mocked_engine) -> TableCommentator:
     return TableCommentator(engine=mocked_engine, name_table="dags_analyzer", schema="audit")
 
-
+# +
 def test_get_instance_class(mocked_engine):
     test_instance = get_instance_class(mocked_engine)
     assert isinstance(test_instance, TableCommentator)
 
 
+def test_reader(mocked_engine):
+    test_instance = get_instance_class(mocked_engine)
+    assert test_instance.reader(SQL_GET_COLUMN_COMMENTS_BY_NAME, columns='columns')
 
-
+# row_sql_recorder
+# recorder
 # ------------------------------------- Не требуют подключения:
 # +
 def test__validator(mocked_engine):    # +
