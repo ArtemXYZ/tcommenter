@@ -38,6 +38,7 @@ from sqlalchemy import text
 from sqlalchemy.engine.base import Engine
 from table_commentator.table_commentator import TableCommentator
 from table_commentator.sql.postgre_sql import *
+
 # from tests.connnections.connection import ENGINE_MART_SV
 
 table_comment = {'table': 'Таблица содержит выгрузку данных из Airflow по имеющимся дагам (все доступные атрибуты).'}
@@ -60,6 +61,7 @@ def mocked_engine():
 def get_instance_class(mocked_engine) -> TableCommentator:
     return TableCommentator(engine=mocked_engine, name_table="dags_analyzer", schema="audit")
 
+
 # +
 def test_get_instance_class(mocked_engine):
     test_instance = get_instance_class(mocked_engine)
@@ -70,11 +72,12 @@ def test_reader(mocked_engine):
     test_instance = get_instance_class(mocked_engine)
     assert test_instance.reader(SQL_GET_COLUMN_COMMENTS_BY_NAME, columns='columns')
 
+
 # row_sql_recorder
 # recorder
 # ------------------------------------- Не требуют подключения:
 # +
-def test__validator(mocked_engine):    # +
+def test__validator(mocked_engine):  # +
     test_ex = get_instance_class(mocked_engine)
     # 1
     assert test_ex._validator('qqqq', str)
@@ -84,11 +87,12 @@ def test__validator(mocked_engine):    # +
     # 3
     assert test_ex._validator('qqqq', str, int)
 
+
 # +
 def test__check_all_elements(mocked_engine):
     test_ex = get_instance_class(mocked_engine)
     # 1
-    with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:" ):
+    with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:"):
         assert test_ex._check_all_elements(check_type=str, args_array='test')
     # 2
     assert test_ex._check_all_elements(check_type=str, args_array=['test', 'test'])
@@ -104,7 +108,7 @@ def test__stop_sql_injections(mocked_engine):
 
     # 1
     with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
-        assert test_ex._stop_sql_injections('')  #  todo изменить поведение (пропускать пустой символ?)
+        assert test_ex._stop_sql_injections('')  # Изменить ли поведение (пропускать пустой символ)?
 
     # 2
     with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
@@ -161,8 +165,42 @@ def test__stop_sql_injections(mocked_engine):
         assert test_ex._stop_sql_injections('sdfdksdsd---*D\\')
 
 
+
+
+
+
+
+
 # ----------------------------------------------------------------------------------------------------------------------
 # @pytest.fixture
 # def mock_session():
 #     mock = MagicMock()
 #     return mock
+
+# ------------------------------------- Более новый подход
+# @pytest.mark.parametrize(
+#     # Имена передаваемых аргументов.
+#     "sql_param_string, expected_exception, match",
+#     # Передаваемые значения аргументов.
+#     [
+#         ('', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
+#         (' - ', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
+#         ('-', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
+#         ('*', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
+#         (';', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
+#         ('DROP', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
+#         ('CREATE', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
+#         ('ALTER', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
+#         ('INSERT', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
+#         ('UPDATE', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
+#         ('DELETE', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
+#         ('DELET', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
+#         (1, ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
+#         ('sdfdksdsd---*D\\', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
+#     ]
+# )
+# def test__stop_sql_injections(mocked_engine, sql_param_string, expected_exception, match):
+#     test_ex = get_instance_class(mocked_engine)
+#
+#     with pytest.raises(expected_exception, match=match):
+#         test_ex._stop_sql_injections(sql_param_string)

@@ -7,8 +7,8 @@
 SQL_SAVE_COMMENT = """COMMENT ON {entity_type} "{schema}"."{name_entity}" IS ':comment'"""
 
 
-# COMMENT ON COLUMN "schema"."name_entity"."name_column" IS 'comment' # Для колонок в любой сущности:
-SQL_SAVE_COMMENT_COLUMN = """COMMENT ON {entity_type} "{schema}"."{name_entity}"."{name_column}" IS ':comment'"""  # COLUMN
+# COMMENT ON COLUMN "schema"."name_entity"."name_column" IS 'comment' # Для колонок в любой сущности: # COLUMN
+SQL_SAVE_COMMENT_COLUMN = """COMMENT ON {entity_type} "{schema}"."{name_entity}"."{name_column}" IS ':comment'"""
 
 SQL_GET_TABLE_COMMENTS = """
     SELECT

@@ -55,7 +55,6 @@ class TableCommentator:
         else:
             raise TypeError(f'Недопустимый тип данных для аргумента: {value}.')
 
-
     def _stop_sql_injections(self, sql_param_string: str) -> str:
         """
             Метод экранирования sql-инъекций комбинирует в себе 2 подхода увеличивая безопасность:
@@ -130,6 +129,7 @@ class TableCommentator:
             _mutable_sql = valid_sql.format(table_name=self.name_entity, columns=columns_string)
 
         else:
+            # Подставляем только name_entity:
             mutable_sql = valid_sql.format(table_name=self.name_entity)
 
         return mutable_sql
@@ -203,13 +203,21 @@ class TableCommentator:
             Универсальный метод для создания комментариев к различным сущностям в базе данных.
         """
 
+
+
+
         if type_comment == 'COLUMN':
             if name_column:
-                mutable_sql_variant = SQL_SAVE_COMMENT_COLUMN.format(
+
+                _comment = self._validator(comment, str)
+
+
+
+                mutable_sql_variant = SQL_SAVE_COMMENT_COLUMN.format( # todo дублирование кода: есть метод  _sql_formatter!
                     entity_type=self.PARAMS_SQL.get(type_comment),
-                    schema=self.schema,
-                    name_entity=self.name_entity,
-                    name_column=name_column,
+                    schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации:
+                    name_entity=self.name_entity,  # Проверка на инъекции есть на верхнем уровне при инициализации:
+                    name_column=self._stop_sql_injections(name_column),
 
                 )
             else:
@@ -228,6 +236,7 @@ class TableCommentator:
             # with self.engine.connect() as conn:
             #     conn.execute(text(mutable_sql))
 
+        # todo вытащить _validator на верх
         self.recorder(mutable_sql_variant, self._validator(comment, str) or None)
 
     def _set_column_comment(self, comments_columns_dict: dict) -> None:
@@ -338,6 +347,7 @@ class TableCommentator:
         """
 
         # Определение типа сущности (варианты: 'table', 'view', 'mview'):
+        # todo: _sql_formatter не преобразует в текст -здесь излишне (ничего не делает метод в данном случае
         type_entity = self.reader(self._sql_formatter(SQL_CHECK_TYPE_ENTITY))
 
         return type_entity[0][0] if type_entity else None
@@ -350,6 +360,7 @@ class TableCommentator:
         """
 
         self._create_comment(type_comment='TABLE', comment=comment)
+
 
     def set_view_comment(self, comment: str) -> None:
         """
