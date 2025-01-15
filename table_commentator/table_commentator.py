@@ -105,43 +105,62 @@ class TableCommentator:
         # Проверяем, все ли элементы имеют один и тот же тип:
         return all(isinstance(element, valid_type) for element in valid_args_array)
 
-    def _sql_formatter(self, sql: str, params: tuple = None) -> text:  #
+    # todo: новые методы после переделки.
+
+    def _insert_params_in_sql(self, sql: str, **sql_params) -> str:
         """
-            Служебный вложенный метод для форматирования sql (передачи необходимых параметров в запрос).
+            Служебный вложенный метод для форматирования sql (подстановка в запрос только name_entity).
                 На входе: необработанный sql.
-                    Принимает параметры "table_name" по умолчанию и дополнительные
-                    (генерирует фрагмент: строку типа "'param1', 'param2'", подставляя в sql).
-                На выходе:
-                    отформатированный sql с параметрами, по умолчанию без передачи дополнительных параметров
-                    форматируется только table_name (атрибут экземпляра класса).
+                На выходе: sql с именем сущности.
+            # _entity_type: str | None = None,
+            # _schema: str | None = None,
+            # # _name_entity: str | None = self.name_entity,
+            # _name_column: str | None = None,
         """
 
         valid_sql = self._validator(sql, str)
 
-        # Если указаны параметры, тогда форматируем:
-        if params:
-            valid_params = self._validator(params, tuple)
+        try:
+            if not sql_params:
 
-            # Имя колонки (сохраняем последовательность через запятую в кавычках:
-            columns_string = ', '.join(f"'{columns}'" for columns in valid_params)
+                fin_sql = valid_sql.format(name_entity=self.name_entity) # Проверка на инъекции пройдена при инициализации:
 
-            # Форматирование sql_str с учетом параметров
-            _mutable_sql = valid_sql.format(table_name=self.name_entity, columns=columns_string)
+            else:
+                fin_sql = valid_sql.format(name_entity=self.name_entity, **sql_params)
+                print(f'fin_sql: {fin_sql}')
+            return fin_sql
 
-        else:
-            # Подставляем только name_entity:
-            mutable_sql = valid_sql.format(table_name=self.name_entity)
+        # todo Ошибка не возникнет если, все существующие ключи совпадут, а излишние проигнорируются.
+        except KeyError as error:
+            raise ValueError(f'Ошибка форматирования sql-запроса: переданный ключ не найден.') # {error}
 
-        return mutable_sql
 
-    def _mutation_sql_by_logic(self, param_column_index_or_name: None | tuple[int, str]) -> str:
+    def _generate_strparams_for_sql(self, params: tuple = None) -> str:
         """
-           Метод изменения sql запроса в зависимости от переданных параметров
-           (содержит логику вариантов форматирования).
-                На входе:
-                    - param_column_index_or_name: либо только индексы, либо имена колонок.
-                    - table_name: мя таблицы к которой выполняется запрос.
-                На выходе: готовый запрос.
+            Приватный вложенный метод для генерации строки с последовательностью имен или индексов колонок.
+            Служит для подготовки передаваемых параметров в соответствии с синтаксисом sql требуемого вида для
+            дальнейшей передачи в запрос через multyparams (conn.execute(sql, multyparams).
+
+            На входе: параметры для подстановки в sql.
+            На выходе: str, последовательность имен или индексов колонок (через запятую в кавычках): columns_string
+
+        """
+
+        valid_params = self._validator(params, tuple)
+        return ', '.join(f"'{columns}'" for columns in valid_params)
+
+    def _get_strparams_only_from_indexes_or_names_for_sql(
+            self,
+            param_column_index_or_name: tuple[int | str]
+    ) -> str:
+        """
+            Приватный вложенный метод-фильтр предназначенный для проверки всего ряда переданных параметров
+            на соответствие единому типу данных: либо только str, либо только int.
+            Это позволит избежать дублирования передаваемых параметров
+            (сценария, когда пользователь вводит и численное представление колонки (индекс) и строковое (имя колонки).
+
+                На входе: param_column_index_or_name - или индексы, или имена колонок, или смешанно.
+                На выходе: После проверки, гарантированно либо только индексы, либо только имена колонок.
         """
 
         # Если были указаны параметры на конкретные колонки:
@@ -153,11 +172,7 @@ class TableCommentator:
                 # Если вводим имя колонки (хотим получить комментарий для колонки по ее имени):
                 if self._check_all_elements(str, param_column_index_or_name):
 
-                    # Форматирование sql_str с учетом параметров:
-                    mutable_sql = self._sql_formatter(
-                        sql=SQL_GET_COLUMN_COMMENTS_BY_NAME,
-                        params=param_column_index_or_name
-                    )
+                    pass
 
                 # Если не все элементы имеют один и тот же тип или недопустимые:
                 else:
@@ -172,12 +187,8 @@ class TableCommentator:
                 # Если вводим индекс колонки (хотим получить комментарий для колонок по индексам):
                 if self._check_all_elements(int, param_column_index_or_name):
 
-                    # Форматирование sql_str с учетом параметров:
-                    mutable_sql = self._sql_formatter(
-                        sql=SQL_GET_COLUMN_COMMENTS_BY_INDEX,
-                        # table_name=self.name_table, - устарело.
-                        params=param_column_index_or_name
-                    )
+                    pass
+
                 # Если не все элементы имеют один и тот же тип или недопустимые:
                 else:
                     raise TypeError(
@@ -186,17 +197,146 @@ class TableCommentator:
                         f' либо только int (индексы колонок).'
                     )
 
-            # Если элементы не соответствуют допустимым типам данных:
-            else:
-                raise TypeError(
-                    f'Переданные аргументы должны быть либо str (имена колонок), либо int (индексы колонок), '
-                    f'другие типы данных недопустимы.'
-                )
-        else:
-            # Если не вводим ни имя колонки, ни индекс (хотим получить все комментарии ко всем существующим колонкам):
-            mutable_sql = self._sql_formatter(sql=SQL_GET_ALL_COLUMN_COMMENTS)  # По умолчанию!
+        # Последовательность имен колонок (через запятую в кавычках): strparams
+        return self._generate_strparams_for_sql(params=param_column_index_or_name)
 
-        return mutable_sql
+
+
+    def _create_comment(self, type_comment: str, comment: str, name_column: str = None) -> None:
+        """
+            Универсальный метод для создания комментариев к различным сущностям в базе данных.
+        """
+
+        if type_comment == 'COLUMN':
+            if name_column:
+
+                _comment = self._validator(comment, str)
+
+                mutable_sql_variant = self._insert_params_in_sql(
+                    SQL_SAVE_COMMENT_COLUMN,
+                    entity_type=self.PARAMS_SQL.get(type_comment),
+                    schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации:
+                    name_column=self._stop_sql_injections(name_column),
+                )
+
+            else:
+                raise ValueError(f'Не передано значение для аргумента: name_column.')
+
+        # Если комментарий не для колонки, значит для любой другой сущности (таблица, представление, ...)
+        else:
+            mutable_sql_variant = self._insert_params_in_sql(
+                SQL_SAVE_COMMENT_COLUMN,
+                entity_type=self.PARAMS_SQL.get(type_comment),
+                schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации:
+            )
+
+
+
+        # todo вытащить _validator на верх
+        self.recorder(mutable_sql_variant, comment)
+
+
+
+
+
+    # # todo: не проверенные методы не переделанные.
+
+    #
+    # def _sql_formatter(self, sql: str, params: tuple = None) -> text:  #
+    #     """
+    #         Служебный вложенный метод для форматирования sql (передачи необходимых параметров в запрос).
+    #             На входе: необработанный sql.
+    #                 Принимает параметры "table_name" по умолчанию и дополнительные
+    #                 (генерирует фрагмент: строку типа "'param1', 'param2'", подставляя в sql).
+    #             На выходе:
+    #                 отформатированный sql с параметрами, по умолчанию без передачи дополнительных параметров
+    #                 форматируется только table_name (атрибут экземпляра класса).
+    #     """
+    #
+    #     valid_sql = self._validator(sql, str)
+    #
+    #     # Если указаны параметры, тогда форматируем:
+    #     if params:
+    #         valid_params = self._validator(params, tuple)
+    #
+    #         # Имя колонки (сохраняем последовательность через запятую в кавычках:
+    #         columns_string = ', '.join(f"'{columns}'" for columns in valid_params)
+    #
+    #         # Форматирование sql_str с учетом параметров
+    #         _mutable_sql = valid_sql.format(table_name=self.name_entity, columns=columns_string)
+    #
+    #     else:
+    #         # Подставляем только name_entity:
+    #         mutable_sql = valid_sql.format(table_name=self.name_entity)
+    #
+    #     return mutable_sql
+
+
+    # def _mutation_sql_by_logic(self, param_column_index_or_name: str | tuple[int, str]) -> str:
+    #     """
+    #        Метод изменения sql запроса в зависимости от переданных параметров
+    #        (содержит логику вариантов форматирования).
+    #             На входе:
+    #                 - param_column_index_or_name: либо только индексы, либо имена колонок.
+    #                 - table_name: мя таблицы к которой выполняется запрос.
+    #             На выходе: готовый запрос.
+    #     """
+    #
+    #     # Если были указаны параметры на конкретные колонки:
+    #     if param_column_index_or_name:
+    #
+    #         #  Проверка первого элемента на тип данных (исключает дублирования проверок):
+    #         if isinstance(param_column_index_or_name[0], str):  # check_first_itm_type
+    #
+    #             # Если вводим имя колонки (хотим получить комментарий для колонки по ее имени):
+    #             if self._check_all_elements(str, param_column_index_or_name):
+    #
+    #                 # Форматирование sql_str с учетом параметров:
+    #                 mutable_sql = self._sql_formatter(
+    #                     sql=SQL_GET_COLUMN_COMMENTS_BY_NAME,
+    #                     params=param_column_index_or_name
+    #                 )
+    #
+    #             # Если не все элементы имеют один и тот же тип или недопустимые:
+    #             else:
+    #                 raise TypeError(
+    #                     f'Переданные аргументы не соответствуют единому типу данных, '
+    #                     f'должны быть либо только str (имена колонок),'
+    #                     f' либо только int (индексы колонок).'
+    #                 )
+    #
+    #         elif isinstance(param_column_index_or_name[0], int):
+    #
+    #             # Если вводим индекс колонки (хотим получить комментарий для колонок по индексам):
+    #             if self._check_all_elements(int, param_column_index_or_name):
+    #
+    #                 # Форматирование sql_str с учетом параметров:
+    #                 mutable_sql = self._sql_formatter(
+    #                     sql=SQL_GET_COLUMN_COMMENTS_BY_INDEX,
+    #                     # table_name=self.name_table, - устарело.
+    #                     params=param_column_index_or_name
+    #                 )
+    #             # Если не все элементы имеют один и тот же тип или недопустимые:
+    #             else:
+    #                 raise TypeError(
+    #                     f'Переданные аргументы не соответствуют единому типу данных, '
+    #                     f'должны быть либо только str (имена колонок),'
+    #                     f' либо только int (индексы колонок).'
+    #                 )
+    #
+    #         # Если элементы не соответствуют допустимым типам данных:
+    #         else:
+    #             raise TypeError(
+    #                 f'Переданные аргументы должны быть либо str (имена колонок), либо int (индексы колонок), '
+    #                 f'другие типы данных недопустимы.'
+    #             )
+    #     else:
+    #         # Если не вводим ни имя колонки, ни индекс (хотим получить все комментарии ко всем существующим колонкам):
+    #         mutable_sql = self._sql_formatter(sql=SQL_GET_ALL_COLUMN_COMMENTS)  # По умолчанию!
+    #
+    #     return mutable_sql
+
+
 
     def _create_comment(self, type_comment: str, comment: str, name_column: str = None) -> None:
         """
@@ -237,7 +377,7 @@ class TableCommentator:
             #     conn.execute(text(mutable_sql))
 
         # todo вытащить _validator на верх
-        self.recorder(mutable_sql_variant, self._validator(comment, str) or None)
+        self.recorder(mutable_sql_variant, comment)
 
     def _set_column_comment(self, comments_columns_dict: dict) -> None:
         """
@@ -256,10 +396,13 @@ class TableCommentator:
 
     #  **
 
-    def recorder(self, sql: Union[str, text], **params: str | int) -> None:  # # todo: аннотация не верна!
+    def recorder(self, sql: Union[str, text], **params: None or Union[str | int]) -> None:  # # todo: аннотация не верна!
         """
            Метод выполняет запросы к базе данных на запись.
         """
+
+        # todo: может убрать этот метод?
+        # todo: добавить ли валидацию (тогда нельзя будет выполнять команды на создание таблиц и удаление.)
 
         _params = params or None
         engine: Engine = self.engine
@@ -328,6 +471,8 @@ class TableCommentator:
         _sql = self._stop_sql_injections(sql)
         self.recorder(_sql)
         return None
+
+
 
     def get_type_entity_in_db(self) -> str:
         """

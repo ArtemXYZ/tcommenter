@@ -46,6 +46,22 @@ table_comment = {'table': 'Таблица содержит выгрузку да
 
 # Можно ли не передавать в тест экземпляр подключения?
 # ----------------------------------------------------------------------------------------------------------------------
+_SQL_GET_TABLE_COMMENTS = """
+    SELECT
+        comments.description AS description
+    FROM
+        pg_class AS all_entity
+    INNER JOIN
+        pg_description AS comments
+    ON 
+        all_entity.oid = comments.objoid 
+    AND 
+        comments.objsubid = 0 
+    AND 
+        all_entity.relname = 'dags_analyzer'
+"""
+
+_SQL_SAVE_COMMENT = """COMMENT ON TABLE "audit"."dags_analyzer" IS ':comment'"""
 # ----------------------------------------- Тесты с мок бд.
 
 # Создаем мок для engine:
@@ -87,7 +103,6 @@ def test__validator(mocked_engine):  # +
     # 3
     assert test_ex._validator('qqqq', str, int)
 
-
 # +
 def test__check_all_elements(mocked_engine):
     test_ex = get_instance_class(mocked_engine)
@@ -101,7 +116,6 @@ def test__check_all_elements(mocked_engine):
     # 4
     with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:"):
         test_ex._check_all_elements(check_type=str, args_array=1)
-
 
 def test__stop_sql_injections(mocked_engine):
     test_ex = get_instance_class(mocked_engine)
@@ -164,12 +178,49 @@ def test__stop_sql_injections(mocked_engine):
     with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
         assert test_ex._stop_sql_injections('sdfdksdsd---*D\\')
 
+def test__get_strparams_only_from_indexes_or_names_for_sql(mocked_engine):
+    test_ex = get_instance_class(mocked_engine)
 
+    # # 1
+    # with pytest.raises(TypeError,
+    #                    match="Переданные аргументы не соответствуют единому типу данных, должны быть либо только str (имена колонок), либо только int (индексы колонок)."
+    #
+    #                    ):
+    #     assert test_ex._get_strparams_only_from_indexes_or_names_for_sql(('erwer', 1))
 
+    # 2
+    with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:"):
+        assert test_ex._get_strparams_only_from_indexes_or_names_for_sql('')
 
+    # 3
+    assert test_ex._get_strparams_only_from_indexes_or_names_for_sql(('erwer', 'wewe'))
 
+    # 4
+    assert test_ex._get_strparams_only_from_indexes_or_names_for_sql((1, 2))
 
+    # 5
+    with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:"):
+        assert test_ex._get_strparams_only_from_indexes_or_names_for_sql(None)
 
+    #  6
+    with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:"):
+        assert test_ex._get_strparams_only_from_indexes_or_names_for_sql([])
+
+def test__insert_params_in_sqll(mocked_engine):
+    test_ex = get_instance_class(mocked_engine)
+    # 1 +
+    assert test_ex._insert_params_in_sql(SQL_GET_TABLE_COMMENTS) == _SQL_GET_TABLE_COMMENTS
+
+    # 2 +
+    assert test_ex._insert_params_in_sql(SQL_SAVE_COMMENT, entity_type='TABLE', schema='audit') == _SQL_SAVE_COMMENT
+
+    # 3 +
+    assert test_ex._insert_params_in_sql(
+        SQL_SAVE_COMMENT, entity_type='TABLE', schema='audit', columnwewe='asd'
+    ) == _SQL_SAVE_COMMENT # todo Ошибка не возникнет если, все существующие ключи совпадут, а излишние проигнорируются.
+
+    # 4 +  # todo Ошибка  KeyError возникнет если не пердать нужный ключ, переделать ValueError: Ошибка форматирования sql-запроса: переданный ключ не найден.
+    assert test_ex._insert_params_in_sql(SQL_SAVE_COMMENT, entity_type='TABLE',) == _SQL_SAVE_COMMENT
 
 # ----------------------------------------------------------------------------------------------------------------------
 # @pytest.fixture

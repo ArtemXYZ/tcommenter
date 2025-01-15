@@ -22,7 +22,7 @@ SQL_GET_TABLE_COMMENTS = """
     AND 
         comments.objsubid = 0 
     AND 
-        all_entity.relname = '{table_name}'
+        all_entity.relname = '{name_entity}'
 """
 
 SQL_GET_ALL_COLUMN_COMMENTS = """
@@ -38,7 +38,7 @@ SQL_GET_ALL_COLUMN_COMMENTS = """
     AND 
         comments.objsubid > 0 
     AND 
-        all_entity.relname = '{table_name}'
+        all_entity.relname = '{name_entity}'
     INNER JOIN 
         pg_attribute AS cols                    
     ON
@@ -60,7 +60,7 @@ SQL_GET_COLUMN_COMMENTS_BY_INDEX = """
     AND
         comments.objsubid > 0
     AND
-        all_entity.relname = '{table_name}'
+        all_entity.relname = '{name_entity}'
     INNER JOIN 
         pg_attribute AS cols                  
     ON
@@ -84,7 +84,7 @@ SQL_GET_COLUMN_COMMENTS_BY_NAME = """
     AND 
         comments.objsubid > 0              
     AND
-        all_entity.relname = '{table_name}'  
+        all_entity.relname = '{name_entity}'  
     INNER JOIN 
         pg_attribute AS cols                    
     ON
@@ -112,7 +112,7 @@ SQL_CHECK_TYPE_ENTITY = """
     FROM
     pg_class as all_entity
     WHERE		
-    all_entity.relname = '{table_name}'	
+    all_entity.relname = '{name_entity}'	
 """
 
 
