@@ -201,7 +201,6 @@ class TableCommentator:
         return self._generate_strparams_for_sql(params=param_column_index_or_name)
 
 
-
     def _create_comment(self, type_comment: str, comment: str, name_column: str = None) -> None:
         """
             Универсальный метод для создания комментариев к различным сущностям в базе данных.
@@ -219,23 +218,51 @@ class TableCommentator:
                     name_column=self._stop_sql_injections(name_column),
                 )
 
+                # Передача comment в параметры на запись безопасна (методы SQLAlchemy).
+                self.recorder(mutable_sql_variant, comment)
+
             else:
                 raise ValueError(f'Не передано значение для аргумента: name_column.')
+
 
         # Если комментарий не для колонки, значит для любой другой сущности (таблица, представление, ...)
         else:
             mutable_sql_variant = self._insert_params_in_sql(
-                SQL_SAVE_COMMENT_COLUMN,
+                SQL_SAVE_COMMENT,
                 entity_type=self.PARAMS_SQL.get(type_comment),
                 schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации:
             )
 
+            self.recorder(mutable_sql_variant)
+
+    #  **
+
+    def recorder(self, sql: str | text, *params: None | str | int) -> None:
+        """
+           Метод выполняет запросы к базе данных на запись.
+        """
 
 
-        # todo вытащить _validator на верх
-        self.recorder(mutable_sql_variant, comment)
+        # todo: может убрать этот метод?
+        # todo: добавить ли валидацию (тогда нельзя будет выполнять команды на создание таблиц и удаление.)
 
+        _params = params or None
+        engine: Engine = self.engine
 
+        try:
+
+            if isinstance(sql, str):
+                sql = text(sql)
+
+            with engine.connect() as conn:
+                with conn.begin():
+
+                    if _params:
+                        conn.execute(sql, _params)
+                    else:
+                        conn.execute(sql)
+        except SQLAlchemyError as e:
+            raise RuntimeError(f"Error executing query: {e}")
 
 
 
@@ -336,48 +363,47 @@ class TableCommentator:
     #
     #     return mutable_sql
 
+    # def _create_comment(self, type_comment: str, comment: str, name_column: str = None) -> None:
+    #     """
+    #         Универсальный метод для создания комментариев к различным сущностям в базе данных.
+    #     """
+    #
+    #
+    #
+    #
+    #     if type_comment == 'COLUMN':
+    #         if name_column:
+    #
+    #             _comment = self._validator(comment, str)
+    #
+    #
+    #
+    #             mutable_sql_variant = SQL_SAVE_COMMENT_COLUMN.format( # todo дублирование кода: есть метод  _sql_formatter!
+    #                 entity_type=self.PARAMS_SQL.get(type_comment),
+    #                 schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации:
+    #                 name_entity=self.name_entity,  # Проверка на инъекции есть на верхнем уровне при инициализации:
+    #                 name_column=self._stop_sql_injections(name_column),
+    #
+    #             )
+    #         else:
+    #             raise ValueError(f'Не передано значение для аргумента: name_column.')
+    #
+    #     # Если комментарий не для колонки, значит для любой другой сущности (таблица, представление, ...)
+    #     else:
+    #         mutable_sql_variant = SQL_SAVE_COMMENT.format(
+    #             self.PARAMS_SQL.get(type_comment),
+    #             self.schema,
+    #             self.name_entity,
+    #             self._validator(comment, str)
+    #         )
+    #
+    #         # Добавление комментариев
+    #         # with self.engine.connect() as conn:
+    #         #     conn.execute(text(mutable_sql))
+    #
+    #     # todo вытащить _validator на верх
+    #     self.recorder(mutable_sql_variant, comment)
 
-
-    def _create_comment(self, type_comment: str, comment: str, name_column: str = None) -> None:
-        """
-            Универсальный метод для создания комментариев к различным сущностям в базе данных.
-        """
-
-
-
-
-        if type_comment == 'COLUMN':
-            if name_column:
-
-                _comment = self._validator(comment, str)
-
-
-
-                mutable_sql_variant = SQL_SAVE_COMMENT_COLUMN.format( # todo дублирование кода: есть метод  _sql_formatter!
-                    entity_type=self.PARAMS_SQL.get(type_comment),
-                    schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации:
-                    name_entity=self.name_entity,  # Проверка на инъекции есть на верхнем уровне при инициализации:
-                    name_column=self._stop_sql_injections(name_column),
-
-                )
-            else:
-                raise ValueError(f'Не передано значение для аргумента: name_column.')
-
-        # Если комментарий не для колонки, значит для любой другой сущности (таблица, представление, ...)
-        else:
-            mutable_sql_variant = SQL_SAVE_COMMENT.format(
-                self.PARAMS_SQL.get(type_comment),
-                self.schema,
-                self.name_entity,
-                self._validator(comment, str)
-            )
-
-            # Добавление комментариев
-            # with self.engine.connect() as conn:
-            #     conn.execute(text(mutable_sql))
-
-        # todo вытащить _validator на верх
-        self.recorder(mutable_sql_variant, comment)
 
     def _set_column_comment(self, comments_columns_dict: dict) -> None:
         """
@@ -394,33 +420,7 @@ class TableCommentator:
             raise ValueError(f'Аргумент "comments_columns_dict" не содержит значения,'
                              f' передано: ({comments_columns_dict}).')
 
-    #  **
 
-    def recorder(self, sql: Union[str, text], **params: None or Union[str | int]) -> None:  # # todo: аннотация не верна!
-        """
-           Метод выполняет запросы к базе данных на запись.
-        """
-
-        # todo: может убрать этот метод?
-        # todo: добавить ли валидацию (тогда нельзя будет выполнять команды на создание таблиц и удаление.)
-
-        _params = params or None
-        engine: Engine = self.engine
-
-        try:
-
-            if isinstance(sql, str):
-                sql = text(sql)
-
-            with engine.connect() as conn:
-                with conn.begin():
-
-                    if _params:
-                        conn.execute(sql, _params)
-                    else:
-                        conn.execute(sql)
-        except SQLAlchemyError as e:
-            raise RuntimeError(f"Error executing query: {e}")
 
     def reader(self, sql: Union[str, text], **params: str | int) -> list[tuple]:
         """

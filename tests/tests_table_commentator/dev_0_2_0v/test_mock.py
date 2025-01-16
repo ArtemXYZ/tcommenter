@@ -206,7 +206,7 @@ def test__get_strparams_only_from_indexes_or_names_for_sql(mocked_engine):
     with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:"):
         assert test_ex._get_strparams_only_from_indexes_or_names_for_sql([])
 
-def test__insert_params_in_sqll(mocked_engine):
+def test__insert_params_in_sql(mocked_engine):
     test_ex = get_instance_class(mocked_engine)
     # 1 +
     assert test_ex._insert_params_in_sql(SQL_GET_TABLE_COMMENTS) == _SQL_GET_TABLE_COMMENTS
@@ -219,7 +219,7 @@ def test__insert_params_in_sqll(mocked_engine):
         SQL_SAVE_COMMENT, entity_type='TABLE', schema='audit', columnwewe='asd'
     ) == _SQL_SAVE_COMMENT # todo Ошибка не возникнет если, все существующие ключи совпадут, а излишние проигнорируются.
 
-    # 4 +  # todo Ошибка  KeyError возникнет если не пердать нужный ключ, переделать ValueError: Ошибка форматирования sql-запроса: переданный ключ не найден.
+    # 4 +  # todo Ошибка  KeyError возникнет если не передать нужный ключ, переделать ValueError: Ошибка форматирования sql-запроса: переданный ключ не найден.
     assert test_ex._insert_params_in_sql(SQL_SAVE_COMMENT, entity_type='TABLE',) == _SQL_SAVE_COMMENT
 
 # ----------------------------------------------------------------------------------------------------------------------
