@@ -310,7 +310,7 @@ class TableCommentator:
                 schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации:
             )
 
-            self._recorder(mutable_sql_variant)
+            self._recorder(mutable_sql_variant, comment=comment_value)
 
     def _set_column_comment(self, comments_columns_dict: dict) -> None:
         """
@@ -376,11 +376,14 @@ class TableCommentator:
         for key_name_column, value_comment in comments_columns.items():
             self._create_comment(type_comment='COLUMN', comment_value=value_comment, name_column=key_name_column)
 
-    def get_table_comments(self) -> dict[str, str]:
+    def get_table_comments(self, str_mode=False) -> dict[str, str] | str:
         """
             Метод для получения комментариев к таблицам.
             На выходе: str - строка с комментарием к таблице.
         """
+
+        # Валидация str_mode:
+        str_mode = self._validator(str_mode, bool)
 
         # Получаем сырые данные после запроса (список кортежей):
         table_comment_tuple_list: list[tuple] = self._reader(
@@ -393,9 +396,12 @@ class TableCommentator:
         else:
             table_comment = ''  # Если комментарий отсутствует, возвращаем пустую строку.
 
-        return {'table': table_comment}
+        if str_mode is True:
+            return table_comment
+        elif str_mode is False:
+            return {'table': table_comment}
 
-    def get_column_comments(self, *column_index_or_name: int | str) -> dict[str, dict]:
+    def get_column_comments(self, *column_index_or_name: int | str, str_mode=False) -> dict[str, dict] | str:
         """
             Метод для получения комментариев к колонкам либо по индексу, либо по имени колонки.
 
@@ -410,7 +416,6 @@ class TableCommentator:
 
         # Значение по умолчанию - получаем все комментарии к колонкам в таблице (без указания индекса или имени):
         param_column_index_or_name: tuple[int | str] | None = None or column_index_or_name
-
 
         if param_column_index_or_name:
 
@@ -434,12 +439,14 @@ class TableCommentator:
                 name_entity=self.name_entity
             )
 
-
         # Генерация словаря из списка кортежей:
         # Распаковывает кортеж из 2-х элементов (1, 'Alice') принимая первый за key и второй за value:
         _column_comments_dict = {key: value for key, value in column_comments_tuple_list}
 
-        return {'columns': _column_comments_dict}  # {'columns': {column: comments} }
+        if str_mode is True:
+            return _column_comments_dict
+        elif str_mode is False:
+            return {'columns': _column_comments_dict}  # {'columns': {column: comments} }
 
     def get_all_comments(self) -> dict[str, str | dict]:
         """
