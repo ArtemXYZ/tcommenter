@@ -11,11 +11,12 @@
 
 # ----------------------------------------------------------------------------------------------------------------------
 import re
-from typing import Union
+# from typing import Union
 # ---------------------------------- Импорт сторонних библиотек
 from sqlalchemy.engine import Engine
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql.elements import TextClause
 
 # -------------------------------- Локальные модули
 from .sql.postgre_sql import *
@@ -105,8 +106,6 @@ class TableCommentator:
         # Проверяем, все ли элементы имеют один и тот же тип:
         return all(isinstance(element, valid_type) for element in valid_args_array)
 
-    # todo: новые методы после переделки.
-
     def _insert_params_in_sql(self, sql: str, **sql_params) -> str:
         """
             Служебный вложенный метод для форматирования sql (подстановка в запрос только name_entity).
@@ -122,22 +121,21 @@ class TableCommentator:
 
         try:
             if not sql_params:
-
-                fin_sql = valid_sql.format(name_entity=self.name_entity) # Проверка на инъекции пройдена при инициализации:
+                # Проверка на инъекции пройдена при инициализации:
+                fin_sql = valid_sql.format(name_entity=self.name_entity)
 
             else:
                 fin_sql = valid_sql.format(name_entity=self.name_entity, **sql_params)
-                print(f'fin_sql: {fin_sql}')
+
             return fin_sql
 
         # todo Ошибка не возникнет если, все существующие ключи совпадут, а излишние проигнорируются.
-        except KeyError as error:
-            raise ValueError(f'Ошибка форматирования sql-запроса: переданный ключ не найден.') # {error}
+        except KeyError:
+            raise ValueError(f'Ошибка форматирования sql-запроса: переданный ключ не найден.')  # {error}
 
-
-    def _generate_strparams_for_sql(self, params: tuple = None) -> str:
+    def _generate_params_list_for_sql(self, params: tuple[int | str] = None) -> list[int | str]:
         """
-            Приватный вложенный метод для генерации строки с последовательностью имен или индексов колонок.
+            Приватный вложенный метод для генерации списка с последовательностью имен или индексов колонок.
             Служит для подготовки передаваемых параметров в соответствии с синтаксисом sql требуемого вида для
             дальнейшей передачи в запрос через multyparams (conn.execute(sql, multyparams).
 
@@ -146,14 +144,17 @@ class TableCommentator:
 
         """
 
-        valid_params = self._validator(params, tuple)
-        return ', '.join(f"'{columns}'" for columns in valid_params)
+        valid_params: tuple = self._validator(params, tuple)
+        return [columns for columns in valid_params]
 
-    def _get_strparams_only_from_indexes_or_names_for_sql(
+    def _get_params_list_only_from_indexes_or_names_for_sql(
             self,
-            param_column_index_or_name: tuple[int | str]
-    ) -> str:
+            param_column_index_or_name: tuple[int | str] | None
+    ) -> tuple[str, list[int | str]]:
         """
+            Генерация строки-массива параметров (" 'param1', 'param2', 'param3', ...") предназначенной для последующей
+            передачи в _reader в params (execute(*multiparams)).
+
             Приватный вложенный метод-фильтр предназначенный для проверки всего ряда переданных параметров
             на соответствие единому типу данных: либо только str, либо только int.
             Это позволит избежать дублирования передаваемых параметров
@@ -172,7 +173,10 @@ class TableCommentator:
                 # Если вводим имя колонки (хотим получить комментарий для колонки по ее имени):
                 if self._check_all_elements(str, param_column_index_or_name):
 
-                    pass
+                    # Соответствующий SQL и последовательность имен колонок (через запятую в кавычках): strparams.
+                    return SQL_GET_COLUMN_COMMENTS_BY_NAME, self._generate_params_list_for_sql(
+                        params=param_column_index_or_name
+                    )
 
                 # Если не все элементы имеют один и тот же тип или недопустимые:
                 else:
@@ -187,7 +191,10 @@ class TableCommentator:
                 # Если вводим индекс колонки (хотим получить комментарий для колонок по индексам):
                 if self._check_all_elements(int, param_column_index_or_name):
 
-                    pass
+                    # Соответствующий SQL и последовательность имен колонок (через запятую в кавычках): strparams.
+                    return SQL_GET_COLUMN_COMMENTS_BY_INDEX, self._generate_params_list_for_sql(
+                        params=param_column_index_or_name
+                    )
 
                 # Если не все элементы имеют один и тот же тип или недопустимые:
                 else:
@@ -197,232 +204,7 @@ class TableCommentator:
                         f' либо только int (индексы колонок).'
                     )
 
-        # Последовательность имен колонок (через запятую в кавычках): strparams
-        return self._generate_strparams_for_sql(params=param_column_index_or_name)
-
-
-    def _create_comment(self, type_comment: str, comment: str, name_column: str = None) -> None:
-        """
-            Универсальный метод для создания комментариев к различным сущностям в базе данных.
-        """
-
-        if type_comment == 'COLUMN':
-            if name_column:
-
-                _comment = self._validator(comment, str)
-
-                mutable_sql_variant = self._insert_params_in_sql(
-                    SQL_SAVE_COMMENT_COLUMN,
-                    entity_type=self.PARAMS_SQL.get(type_comment),
-                    schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации:
-                    name_column=self._stop_sql_injections(name_column),
-                )
-
-                # Передача comment в параметры на запись безопасна (методы SQLAlchemy).
-                self.recorder(mutable_sql_variant, comment)
-
-            else:
-                raise ValueError(f'Не передано значение для аргумента: name_column.')
-
-
-        # Если комментарий не для колонки, значит для любой другой сущности (таблица, представление, ...)
-        else:
-            mutable_sql_variant = self._insert_params_in_sql(
-                SQL_SAVE_COMMENT,
-                entity_type=self.PARAMS_SQL.get(type_comment),
-                schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации:
-            )
-
-            self.recorder(mutable_sql_variant)
-
-    #  **
-
-    def recorder(self, sql: str | text, *params: None | str | int) -> None:
-        """
-           Метод выполняет запросы к базе данных на запись.
-        """
-
-
-        # todo: может убрать этот метод?
-        # todo: добавить ли валидацию (тогда нельзя будет выполнять команды на создание таблиц и удаление.)
-
-        _params = params or None
-        engine: Engine = self.engine
-
-        try:
-
-            if isinstance(sql, str):
-                sql = text(sql)
-
-            with engine.connect() as conn:
-                with conn.begin():
-
-                    if _params:
-                        conn.execute(sql, _params)
-                    else:
-                        conn.execute(sql)
-        except SQLAlchemyError as e:
-            raise RuntimeError(f"Error executing query: {e}")
-
-
-
-    # # todo: не проверенные методы не переделанные.
-
-    #
-    # def _sql_formatter(self, sql: str, params: tuple = None) -> text:  #
-    #     """
-    #         Служебный вложенный метод для форматирования sql (передачи необходимых параметров в запрос).
-    #             На входе: необработанный sql.
-    #                 Принимает параметры "table_name" по умолчанию и дополнительные
-    #                 (генерирует фрагмент: строку типа "'param1', 'param2'", подставляя в sql).
-    #             На выходе:
-    #                 отформатированный sql с параметрами, по умолчанию без передачи дополнительных параметров
-    #                 форматируется только table_name (атрибут экземпляра класса).
-    #     """
-    #
-    #     valid_sql = self._validator(sql, str)
-    #
-    #     # Если указаны параметры, тогда форматируем:
-    #     if params:
-    #         valid_params = self._validator(params, tuple)
-    #
-    #         # Имя колонки (сохраняем последовательность через запятую в кавычках:
-    #         columns_string = ', '.join(f"'{columns}'" for columns in valid_params)
-    #
-    #         # Форматирование sql_str с учетом параметров
-    #         _mutable_sql = valid_sql.format(table_name=self.name_entity, columns=columns_string)
-    #
-    #     else:
-    #         # Подставляем только name_entity:
-    #         mutable_sql = valid_sql.format(table_name=self.name_entity)
-    #
-    #     return mutable_sql
-
-
-    # def _mutation_sql_by_logic(self, param_column_index_or_name: str | tuple[int, str]) -> str:
-    #     """
-    #        Метод изменения sql запроса в зависимости от переданных параметров
-    #        (содержит логику вариантов форматирования).
-    #             На входе:
-    #                 - param_column_index_or_name: либо только индексы, либо имена колонок.
-    #                 - table_name: мя таблицы к которой выполняется запрос.
-    #             На выходе: готовый запрос.
-    #     """
-    #
-    #     # Если были указаны параметры на конкретные колонки:
-    #     if param_column_index_or_name:
-    #
-    #         #  Проверка первого элемента на тип данных (исключает дублирования проверок):
-    #         if isinstance(param_column_index_or_name[0], str):  # check_first_itm_type
-    #
-    #             # Если вводим имя колонки (хотим получить комментарий для колонки по ее имени):
-    #             if self._check_all_elements(str, param_column_index_or_name):
-    #
-    #                 # Форматирование sql_str с учетом параметров:
-    #                 mutable_sql = self._sql_formatter(
-    #                     sql=SQL_GET_COLUMN_COMMENTS_BY_NAME,
-    #                     params=param_column_index_or_name
-    #                 )
-    #
-    #             # Если не все элементы имеют один и тот же тип или недопустимые:
-    #             else:
-    #                 raise TypeError(
-    #                     f'Переданные аргументы не соответствуют единому типу данных, '
-    #                     f'должны быть либо только str (имена колонок),'
-    #                     f' либо только int (индексы колонок).'
-    #                 )
-    #
-    #         elif isinstance(param_column_index_or_name[0], int):
-    #
-    #             # Если вводим индекс колонки (хотим получить комментарий для колонок по индексам):
-    #             if self._check_all_elements(int, param_column_index_or_name):
-    #
-    #                 # Форматирование sql_str с учетом параметров:
-    #                 mutable_sql = self._sql_formatter(
-    #                     sql=SQL_GET_COLUMN_COMMENTS_BY_INDEX,
-    #                     # table_name=self.name_table, - устарело.
-    #                     params=param_column_index_or_name
-    #                 )
-    #             # Если не все элементы имеют один и тот же тип или недопустимые:
-    #             else:
-    #                 raise TypeError(
-    #                     f'Переданные аргументы не соответствуют единому типу данных, '
-    #                     f'должны быть либо только str (имена колонок),'
-    #                     f' либо только int (индексы колонок).'
-    #                 )
-    #
-    #         # Если элементы не соответствуют допустимым типам данных:
-    #         else:
-    #             raise TypeError(
-    #                 f'Переданные аргументы должны быть либо str (имена колонок), либо int (индексы колонок), '
-    #                 f'другие типы данных недопустимы.'
-    #             )
-    #     else:
-    #         # Если не вводим ни имя колонки, ни индекс (хотим получить все комментарии ко всем существующим колонкам):
-    #         mutable_sql = self._sql_formatter(sql=SQL_GET_ALL_COLUMN_COMMENTS)  # По умолчанию!
-    #
-    #     return mutable_sql
-
-    # def _create_comment(self, type_comment: str, comment: str, name_column: str = None) -> None:
-    #     """
-    #         Универсальный метод для создания комментариев к различным сущностям в базе данных.
-    #     """
-    #
-    #
-    #
-    #
-    #     if type_comment == 'COLUMN':
-    #         if name_column:
-    #
-    #             _comment = self._validator(comment, str)
-    #
-    #
-    #
-    #             mutable_sql_variant = SQL_SAVE_COMMENT_COLUMN.format( # todo дублирование кода: есть метод  _sql_formatter!
-    #                 entity_type=self.PARAMS_SQL.get(type_comment),
-    #                 schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации:
-    #                 name_entity=self.name_entity,  # Проверка на инъекции есть на верхнем уровне при инициализации:
-    #                 name_column=self._stop_sql_injections(name_column),
-    #
-    #             )
-    #         else:
-    #             raise ValueError(f'Не передано значение для аргумента: name_column.')
-    #
-    #     # Если комментарий не для колонки, значит для любой другой сущности (таблица, представление, ...)
-    #     else:
-    #         mutable_sql_variant = SQL_SAVE_COMMENT.format(
-    #             self.PARAMS_SQL.get(type_comment),
-    #             self.schema,
-    #             self.name_entity,
-    #             self._validator(comment, str)
-    #         )
-    #
-    #         # Добавление комментариев
-    #         # with self.engine.connect() as conn:
-    #         #     conn.execute(text(mutable_sql))
-    #
-    #     # todo вытащить _validator на верх
-    #     self.recorder(mutable_sql_variant, comment)
-
-
-    def _set_column_comment(self, comments_columns_dict: dict) -> None:
-        """
-            Метод для создания комментариев к COLUMN.
-        """
-
-        if self._validator(comments_columns_dict, dict):
-
-            for key_name_column, value_comment in comments_columns_dict.items():
-                # todo: в _create_comment убрать comment и name_column передавать dict не канает так как для таблицы
-                #  нет колоки либо разделять методы либо придумывать что то другое.
-                self._create_comment(type_comment='COLUMN', comment=value_comment, name_column=key_name_column)
-        else:
-            raise ValueError(f'Аргумент "comments_columns_dict" не содержит значения,'
-                             f' передано: ({comments_columns_dict}).')
-
-
-
-    def reader(self, sql: Union[str, text], **params: str | int) -> list[tuple]:
+    def _reader(self, sql: str | TextClause, **params: str | int | list) -> list[tuple]:
         """
             Метод выполняет запросы к базе данных на чтение и возвращает данные.
             На входе: sql - sql-запрос в виде строки или объекта sqlalchemy.text.
@@ -450,6 +232,7 @@ class TableCommentator:
             with engine.connect() as conn:
                 with conn.begin():
                     if _params:
+                        _params: dict = self._validator(_params, dict)
                         result = conn.execute(sql, _params)
                     else:
                         result = conn.execute(sql)
@@ -462,17 +245,85 @@ class TableCommentator:
         # Даже если fetchall() вернет пустой список, генератор безопасно вернет [].
         return tuple_list
 
-    def row_sql_recorder(self, sql: str) -> None:
+    def _recorder(self, sql: str | TextClause, **params: None | str | int) -> None:
         """
-            Метод для создания сырых запросов на запись данных.
+            Метод выполняет запросы к базе данных на запись.
+
+            Если запрос использует именованные параметры (например, :param),
+            то multiparams должен содержать **один или не один или несколько словарей.
+
+
+            Как работает multiparams:
+            multiparams принимает позиционные аргументы (*args), которые могут быть:
+            словари (для именованных параметров),
+            кортежи (для позиционных параметров, если запрос использует позиции вместо имён).
         """
 
-        # Проверка на инъекции:
-        _sql = self._stop_sql_injections(sql)
-        self.recorder(_sql)
-        return None
+        _params = params or None
+        engine: Engine = self.engine
+
+        try:
+
+            if isinstance(sql, str):
+                sql = text(sql)
+
+            with engine.connect() as conn:
+                with conn.begin():
+
+                    if _params:
+                        _params: dict = self._validator(_params, dict)
+                        conn.execute(sql, _params)
+                    else:
+                        conn.execute(sql)
+        except SQLAlchemyError as e:
+            raise RuntimeError(f"Error executing query: {e}")
+
+    def _create_comment(self, type_comment: str, comment_value: str, name_column: str = None) -> None:
+        """
+            Универсальный метод для создания комментариев к различным сущностям в базе данных.
+        """
+
+        if type_comment == 'COLUMN':
+            if name_column:
+
+                comment_value = self._validator(comment_value, str)
+
+                mutable_sql_variant = self._insert_params_in_sql(
+                    SQL_SAVE_COMMENT_COLUMN,
+                    entity_type=self.PARAMS_SQL.get(type_comment),
+                    schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации:
+                    name_column=self._stop_sql_injections(name_column),
+                )
+
+                # Передача comment в параметры на запись безопасна (методы SQLAlchemy).
+                self._recorder(mutable_sql_variant, comment=comment_value)
+
+            else:
+                raise ValueError(f'Не передано значение для аргумента: name_column.')
 
 
+        # Если комментарий не для колонки, значит для любой другой сущности (таблица, представление, ...)
+        else:
+            mutable_sql_variant = self._insert_params_in_sql(
+                SQL_SAVE_COMMENT,
+                entity_type=self.PARAMS_SQL.get(type_comment),
+                schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации:
+            )
+
+            self._recorder(mutable_sql_variant)
+
+    def _set_column_comment(self, comments_columns_dict: dict) -> None:
+        """
+            Метод для создания комментариев к COLUMN.
+        """
+
+        if self._validator(comments_columns_dict, dict):
+
+            for key_name_column, value_comment in comments_columns_dict.items():
+                self._create_comment(type_comment='COLUMN', comment_value=value_comment, name_column=key_name_column)
+        else:
+            raise ValueError(f'Аргумент "comments_columns_dict" не содержит значения,'
+                             f' передано: ({comments_columns_dict}).')
 
     def get_type_entity_in_db(self) -> str:
         """
@@ -492,34 +343,30 @@ class TableCommentator:
         """
 
         # Определение типа сущности (варианты: 'table', 'view', 'mview'):
-        # todo: _sql_formatter не преобразует в текст -здесь излишне (ничего не делает метод в данном случае
-        type_entity = self.reader(self._sql_formatter(SQL_CHECK_TYPE_ENTITY))
+        type_entity = self._reader(SQL_CHECK_TYPE_ENTITY, name_entity=self.name_entity)
 
         return type_entity[0][0] if type_entity else None
-
-    # *
 
     def set_table_comment(self, comment: str) -> None:
         """
             Метод для создания комментариев к TABLE.
         """
 
-        self._create_comment(type_comment='TABLE', comment=comment)
-
+        self._create_comment(type_comment='TABLE', comment_value=comment)
 
     def set_view_comment(self, comment: str) -> None:
         """
             Метод для создания комментариев к VIEW.
         """
 
-        self._create_comment(type_comment='VIEW', comment=comment)
+        self._create_comment(type_comment='VIEW', comment_value=comment)
 
     def set_materialized_view_comment(self, comment: str) -> None:
         """
             Метод для создания комментариев к MATERIALIZED VIEW.
         """
 
-        self._create_comment(type_comment='MATERIALIZED', comment=comment)
+        self._create_comment(type_comment='MATERIALIZED', comment_value=comment)
 
     def set_column_comment(self, **comments_columns: str) -> None:
         """
@@ -527,9 +374,7 @@ class TableCommentator:
         """
 
         for key_name_column, value_comment in comments_columns.items():
-            self._create_comment(type_comment='COLUMN', comment=value_comment, name_column=key_name_column)
-
-    #  *
+            self._create_comment(type_comment='COLUMN', comment_value=value_comment, name_column=key_name_column)
 
     def get_table_comments(self) -> dict[str, str]:
         """
@@ -537,12 +382,10 @@ class TableCommentator:
             На выходе: str - строка с комментарием к таблице.
         """
 
-        # Проверка корректности типа данных для введенного значения, переменная - имея таблицы:
-        # check_name_table = self._validator(table_name, str) - устарело
-        mutable_sql = SQL_GET_TABLE_COMMENTS.format(table_name=self.name_entity)
-
         # Получаем сырые данные после запроса (список кортежей):
-        table_comment_tuple_list: list[tuple] = self.reader(sql=mutable_sql)
+        table_comment_tuple_list: list[tuple] = self._reader(
+            SQL_GET_TABLE_COMMENTS, name_entity=self.name_entity
+        )
 
         # Преобразуем (обращаемся к первому элементу в списке (к кортежу, будет всего один всегда) и распаковываем:
         if table_comment_tuple_list:
@@ -552,7 +395,7 @@ class TableCommentator:
 
         return {'table': table_comment}
 
-    def get_column_comments(self, *column_index_or_name: int | str) -> dict[str, dict]:  # dict[str, dict]
+    def get_column_comments(self, *column_index_or_name: int | str) -> dict[str, dict]:
         """
             Метод для получения комментариев к колонкам либо по индексу, либо по имени колонки.
 
@@ -566,18 +409,31 @@ class TableCommentator:
         """
 
         # Значение по умолчанию - получаем все комментарии к колонкам в таблице (без указания индекса или имени):
-        param_column_index_or_name: tuple[int, str] | None = None or column_index_or_name
+        param_column_index_or_name: tuple[int | str] | None = None or column_index_or_name
 
-        # Проверка корректности типа данных для введенного значения, переменная - имея таблицы:
-        # check_name_table = self._validator(self.name_table, str) -  устарело
 
-        # Изменение sql запроса в зависимости от переданных параметров
-        mutable_sql = self._mutation_sql_by_logic(param_column_index_or_name)  # , table_name: str
+        if param_column_index_or_name:
 
-        # Преобразование sql_str в тип данных sqlalchemy:
-        final_sql = text(mutable_sql)
+            # Получаем sql (или для имен, или для индексов) и сформированный в одной строке массив параметров:
+            sql, params_list_only_from_indexes_or_name = self._get_params_list_only_from_indexes_or_names_for_sql(
+                param_column_index_or_name
+            )
 
-        column_comments_tuple_list: list[tuple] = self.reader(sql=final_sql)
+            # Передаем уточненные sql и параметры:
+            column_comments_tuple_list: list[tuple] = self._reader(
+                sql,
+                name_entity=self.name_entity,
+                columns=params_list_only_from_indexes_or_name
+            )
+
+        else:
+
+            # Передаем sql для извлечения всех комментариев без параметров:
+            column_comments_tuple_list: list[tuple] = self._reader(
+                SQL_GET_ALL_COLUMN_COMMENTS,
+                name_entity=self.name_entity
+            )
+
 
         # Генерация словаря из списка кортежей:
         # Распаковывает кортеж из 2-х элементов (1, 'Alice') принимая первый за key и второй за value:
@@ -670,7 +526,7 @@ class TableCommentator:
                 elif key == 'columns':
 
                     # Проверка на пустоту и валидация:
-                    if self._validator(value, Dict):
+                    if self._validator(value, dict):
 
                         # Принимает словарь, метод принимает dict:
                         self._set_column_comment(value)

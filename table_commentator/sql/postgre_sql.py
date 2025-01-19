@@ -4,11 +4,11 @@
 
 
 # COMMENT ON TABLE "schema"."table" IS 'comment'  для любой сущности (таблица, представление, ...)
-SQL_SAVE_COMMENT = """COMMENT ON {entity_type} "{schema}"."{name_entity}" IS ':comment'"""
+SQL_SAVE_COMMENT = """COMMENT ON {entity_type} "{schema}"."{name_entity}" IS :comment"""
 
 
 # COMMENT ON COLUMN "schema"."name_entity"."name_column" IS 'comment' # Для колонок в любой сущности: # COLUMN
-SQL_SAVE_COMMENT_COLUMN = """COMMENT ON {entity_type} "{schema}"."{name_entity}"."{name_column}" IS ':comment'"""
+SQL_SAVE_COMMENT_COLUMN = """COMMENT ON {entity_type} "{schema}"."{name_entity}"."{name_column}" IS :comment"""
 
 SQL_GET_TABLE_COMMENTS = """
     SELECT
@@ -22,7 +22,7 @@ SQL_GET_TABLE_COMMENTS = """
     AND 
         comments.objsubid = 0 
     AND 
-        all_entity.relname = '{name_entity}'
+        all_entity.relname = :name_entity
 """
 
 SQL_GET_ALL_COLUMN_COMMENTS = """
@@ -38,7 +38,7 @@ SQL_GET_ALL_COLUMN_COMMENTS = """
     AND 
         comments.objsubid > 0 
     AND 
-        all_entity.relname = '{name_entity}'
+        all_entity.relname = :name_entity
     INNER JOIN 
         pg_attribute AS cols                    
     ON
@@ -60,7 +60,7 @@ SQL_GET_COLUMN_COMMENTS_BY_INDEX = """
     AND
         comments.objsubid > 0
     AND
-        all_entity.relname = '{name_entity}'
+        all_entity.relname = :name_entity
     INNER JOIN 
         pg_attribute AS cols                  
     ON
@@ -68,7 +68,7 @@ SQL_GET_COLUMN_COMMENTS_BY_INDEX = """
     AND
         cols.attrelid = all_entity.oid      
     WHERE 
-         comments.objsubid IN (:columns)
+         comments.objsubid = ANY(:columns)
 """
 
 SQL_GET_COLUMN_COMMENTS_BY_NAME = """
@@ -84,7 +84,7 @@ SQL_GET_COLUMN_COMMENTS_BY_NAME = """
     AND 
         comments.objsubid > 0              
     AND
-        all_entity.relname = '{name_entity}'  
+        all_entity.relname = :name_entity 
     INNER JOIN 
         pg_attribute AS cols                    
     ON
@@ -92,7 +92,7 @@ SQL_GET_COLUMN_COMMENTS_BY_NAME = """
     AND
         cols.attrelid = all_entity.oid
     WHERE
-         cols.attname IN (':columns')
+         cols.attname = ANY(:columns)
 """
 
 SQL_CHECK_TYPE_ENTITY = """
@@ -112,7 +112,7 @@ SQL_CHECK_TYPE_ENTITY = """
     FROM
     pg_class as all_entity
     WHERE		
-    all_entity.relname = '{name_entity}'	
+    all_entity.relname = :name_entity	
 """
 
 
