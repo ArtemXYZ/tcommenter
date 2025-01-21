@@ -1,7 +1,7 @@
-from table_commentator.table_commentator import TableCommentator
+from tcommenter.tcommenter import Tcommenter
 from tests.connnections.connection import ENGINE_MART_SV
 
-comments = TableCommentator(engine=ENGINE_MART_SV, name_table='dags_analyzer', schema='audit')
+comments = Tcommenter(engine=ENGINE_MART_SV, name_table='dags_analyzer', schema='audit')
 # a = comments.get_table_comments()
 # dict_comments = comments.get_column_comments('tags')
 # dict_comments = comments.get_all_comments()
@@ -21,5 +21,5 @@ comments = TableCommentator(engine=ENGINE_MART_SV, name_table='dags_analyzer', s
 # создать тесты в сл выпуске
 
 # Список всех методов:
-for r in TableCommentator.__dict__:
+for r in Tcommenter.__dict__:
     print(r)

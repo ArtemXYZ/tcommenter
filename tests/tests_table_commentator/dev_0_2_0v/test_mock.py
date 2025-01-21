@@ -36,8 +36,8 @@ import pytest
 from unittest.mock import MagicMock, patch
 from sqlalchemy import text
 from sqlalchemy.engine.base import Engine
-from table_commentator.table_commentator import TableCommentator
-from table_commentator.sql.postgre_sql import *
+from tcommenter.tcommenter import Tcommenter
+from tcommenter.sql.postgre_sql import *
 
 # from tests.connnections.connection import ENGINE_MART_SV
 
@@ -74,14 +74,14 @@ def mocked_engine():
 
 
 # Возвращаем экземпляр класса с моком:
-def get_instance_class(mocked_engine) -> TableCommentator:
-    return TableCommentator(engine=mocked_engine, name_table="dags_analyzer", schema="audit")
+def get_instance_class(mocked_engine) -> Tcommenter:
+    return Tcommenter(engine=mocked_engine, name_table="dags_analyzer", schema="audit")
 
 
 # +
 def test_get_instance_class(mocked_engine):
     test_instance = get_instance_class(mocked_engine)
-    assert isinstance(test_instance, TableCommentator)
+    assert isinstance(test_instance, Tcommenter)
 
 
 def test_reader(mocked_engine):
