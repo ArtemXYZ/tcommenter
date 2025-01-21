@@ -11,7 +11,8 @@
 
 # ----------------------------------------------------------------------------------------------------------------------
 import re
-# from typing import Union
+from typing import TypeVar # , Union
+
 # ---------------------------------- Импорт сторонних библиотек
 from sqlalchemy.engine import Engine
 from sqlalchemy import text
@@ -21,7 +22,7 @@ from sqlalchemy.sql.elements import TextClause
 # -------------------------------- Локальные модули
 from .sql.postgre_sql import *
 
-
+any_types = TypeVar('any_types')  # Создаем обобщённый тип данных.
 # ----------------------------------------------------------------------------------------------------------------------
 class TableCommentator:
     """
@@ -44,17 +45,40 @@ class TableCommentator:
         self.name_entity: str = self._stop_sql_injections(self._validator(name_table, str))
         self.schema = self._stop_sql_injections(self._validator(schema, str))
 
-    # ***
 
     @staticmethod
-    def _validator(value: any, *check_type: any) -> any:
+    def _validator(value: any_types, *check_type: type) -> any_types:
         """
-            Проверка на корректную передачу входных параметров с требуемым типом данных.
+            *** Приватный метод валидации. ***
+
+            Предназначен для проверки корректной передачи аргументов в соответствии с требуемым типом данных.
+
+            * Описание механики:
+                В соответствии с переданным набором допустимых типов данных через параметр "*check_type",
+                осуществляется сверка проверяемого аргумента "value" на основе метода "isinstance()".
+                В случае соответствия хотя бы одному из набора типов данных, возвращается переданный аргумент "value",
+                иначе, вызывается исключение TypeError.
+
+            ***
+
+            * Пример вызова:
+
+                params = self._validator(_params, dict)
+
+            ***
+
+            :param value: Значение, которое требуется проверить.
+            :param check_type: Один или несколько типов данных, допустимых для значения value.
+            :return: Возвращает значение value, если оно соответствует одному из типов check_type.
+            :rtype: any_types, возвращается тип исходный тип данных проверяемого аргумента.
+            :raises TypeError: Если значение value не соответствует ни одному из указанных типов данных.
         """
+
         if isinstance(value, check_type):
             return value
         else:
-            raise TypeError(f'Недопустимый тип данных для аргумента: {value}.')
+            raise TypeError(f'Недопустимый тип данных: "{type(value).__name__}", для аргумента: "{value}".')
+
 
     def _stop_sql_injections(self, sql_param_string: str) -> str:
         """

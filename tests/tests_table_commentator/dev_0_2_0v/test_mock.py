@@ -98,7 +98,7 @@ def test__validator(mocked_engine):  # +
     # 1
     assert test_ex._validator('qqqq', str)
     # 2
-    with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:."):
+    with pytest.raises(TypeError, match='Недопустимый тип данных: "str", для аргумента: "qqqq"'):
         test_ex._validator('qqqq', dict, int)
     # 3
     assert test_ex._validator('qqqq', str, int)
