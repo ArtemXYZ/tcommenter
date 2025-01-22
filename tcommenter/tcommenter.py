@@ -243,23 +243,34 @@ class Tcommenter:
 
     def _generate_params_list_for_sql(self, params: tuple[int | str] = None) -> list[int | str]:
         """
+            *** Приватный метод для генерации списка имен колонок или их индексов. ***
 
+            Предназначен для генерации списка имен колонок или их индексов, используемых в sql запросах в качестве
+            параметров (для дальнейшей передачи через multyparams в conn.execute(sql, multyparams)).
+            Используется как вложенный метод в других участках кода библиотеки.
 
+            * Описание механики:
+                Преобразование картежа (образованного от *args из других методов) в список. Сначала валидация входных
+                аргументов, далее работа list comprehension.
 
+            ***
 
-            Приватный вложенный метод для генерации списка с последовательностью имен или индексов колонок.
-            Служит для подготовки передаваемых параметров в соответствии с синтаксисом sql требуемого вида для
-            дальнейшей передачи в запрос через multyparams (conn.execute(sql, multyparams).
+            * Пример вызова:
 
-            На входе: параметры для подстановки в sql.
-            На выходе: str, последовательность имен или индексов колонок (через запятую в кавычках): columns_string
+                params_list = self._generate_params_list_for_sql(params=param_column_index_or_name)
 
+            ***
+
+            :param params: Значения параметров для подстановки в sql.
+            :return: Список параметров.
+            :rtype: list[int | str].
+            :raises: Возможны другие исключения во вложенных служебных методах (подробно смотрите в их описании).
         """
 
         valid_params: tuple = self._validator(params, tuple)
         return [columns for columns in valid_params]
 
-    def _get_params_list_only_from_indexes_or_names_for_sql(
+    def _get_sql_and_params_list_only_from_indexes_or_names(
             self,
             param_column_index_or_name: tuple[int | str] | None
     ) -> tuple[str, list[int | str]]:
@@ -655,7 +666,7 @@ class Tcommenter:
         if param_column_index_or_name:
 
             # Получаем sql (или для имен, или для индексов) и сформированный в одной строке массив параметров:
-            sql, params_list_only_from_indexes_or_name = self._get_params_list_only_from_indexes_or_names_for_sql(
+            sql, params_list_only_from_indexes_or_name = self._get_sql_and_params_list_only_from_indexes_or_names(
                 param_column_index_or_name
             )
 
@@ -798,3 +809,4 @@ class Tcommenter:
 # ----------------------------------------------------------------------------------------------------------------------
 
 
+# На выходе: str, последовательность имен или индексов колонок (через запятую в кавычках): columns_string

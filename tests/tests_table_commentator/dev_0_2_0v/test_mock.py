@@ -190,21 +190,21 @@ def test__get_strparams_only_from_indexes_or_names_for_sql(mocked_engine):
 
     # 2
     with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:"):
-        assert test_ex._get_params_list_only_from_indexes_or_names_for_sql('')
+        assert test_ex._get_sql_and_params_list_only_from_indexes_or_names('')
 
     # 3
-    assert test_ex._get_params_list_only_from_indexes_or_names_for_sql(('erwer', 'wewe'))
+    assert test_ex._get_sql_and_params_list_only_from_indexes_or_names(('erwer', 'wewe'))
 
     # 4
-    assert test_ex._get_params_list_only_from_indexes_or_names_for_sql((1, 2))
+    assert test_ex._get_sql_and_params_list_only_from_indexes_or_names((1, 2))
 
     # 5
     with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:"):
-        assert test_ex._get_params_list_only_from_indexes_or_names_for_sql(None)
+        assert test_ex._get_sql_and_params_list_only_from_indexes_or_names(None)
 
     #  6
     with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:"):
-        assert test_ex._get_params_list_only_from_indexes_or_names_for_sql([])
+        assert test_ex._get_sql_and_params_list_only_from_indexes_or_names([])
 
 def test__insert_params_in_sql(mocked_engine):
     test_ex = get_instance_class(mocked_engine)
