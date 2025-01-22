@@ -71,7 +71,7 @@
 #
 # def test_get_type_entity_in_db():
 #     test_ex = test_get_instance_class()
-#     assert test_ex.get_type_entity_in_db()
+#     assert test_ex.get_type_entity()
 #
 #
 # def test_reader():

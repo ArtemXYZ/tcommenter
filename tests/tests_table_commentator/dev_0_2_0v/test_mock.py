@@ -20,7 +20,7 @@
         recorder
         reader
         row_sql_recorder
-        get_type_entity_in_db
+        get_type_entity
         set_table_comment
         set_view_comment
         set_materialized_view_comment

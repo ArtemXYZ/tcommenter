@@ -23,3 +23,5 @@ comments = Tcommenter(engine=ENGINE_MART_SV, name_table='dags_analyzer', schema=
 # Список всех методов:
 for r in Tcommenter.__dict__:
     print(r)
+
+
