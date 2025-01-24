@@ -34,7 +34,6 @@ class Tcommenter:
         (DAG - Directed Acyclic Graph, https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/dags.html).
     """
 
-    # Обеспечивает безопасный ввод параметров конструкции SQL для типа сущности:
     PARAMS_SQL = {
         'TABLE': 'TABLE',
         'VIEW': 'VIEW',
@@ -42,7 +41,7 @@ class Tcommenter:
         'COLUMN': 'COLUMN',
     }
 
-    def __init__(self, engine: Engine, name_table: str, schema: str):  # | AsyncEngine
+    def __init__(self, engine: Engine, name_table: str, schema: str):
         self.engine = self._validator(engine, Engine)
         self.name_entity: str = self._stop_sql_injections(self._validator(name_table, str))
         self.schema = self._stop_sql_injections(self._validator(schema, str))
@@ -80,7 +79,7 @@ class Tcommenter:
             return value
         else:
             raise TypeError(f'Недопустимый тип данных: "{type(value).__name__}", для аргумента: "{value}".')
-
+                            # Invalid data type: "{type(value).__name__}", for the argument: "{value}".'
     def _stop_sql_injections(self, sql_param_string: str) -> str:
         """
             *** Приватный метод экранирования запросов от sql-инъекций. ***
@@ -146,12 +145,15 @@ class Tcommenter:
 
         # Проверка на разрешённые символы:
         if not re.match(r'^[a-zA-Z0-9_.\-]+$', sql_param_string):
-            raise ValueError("Ошибка! Недопустимый символ в проверяемой строке.")
+            raise ValueError(f'Ошибка проверки строки: "{sql_param_string}"! Обнаружен недопустимый символ. '
+                             f'Разрешены только буквы латинского алфавита, цифры, символы: "_", ".", "-".')
 
         # Проверка на наличие sql-ключевых слов:
         disallowed_keywords = ["DROP", "CREATE", "ALTER", "INSERT", "UPDATE", "DELETE", "--", ";"]
         if any(keyword in sql_param_string.upper() for keyword in disallowed_keywords):
-            raise ValueError("Ошибка! Попытка внедрения sql-инъекции.")
+            raise ValueError(f'Ошибка проверки строки: "{sql_param_string}"! '
+                             f'Обнаружено присутствие sql-ключевых слов: {disallowed_keywords}'
+                             )
 
         return sql_param_string
 
