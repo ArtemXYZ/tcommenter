@@ -725,22 +725,28 @@ class Tcommenter:
         for key_name_column, value_comment in comments_columns.items():
             self._create_comment(type_comment='COLUMN', comment_value=value_comment, name_column=key_name_column)
 
-    def get_table_comments(self, str_mode=False) -> dict[str, str] | str:
+    def get_table_comments(self, service_mode: bool = False) ->  str | dict[str, str]:
         """
             *** Метод для получения комментариев к таблицам (и к другим сущностям, кроме колонок) в базе данных. ***
 
             Предназначен для получения комментариев к таблицам и другим сущностям, таким как представлениям |
             материализованным представлениям | ... (имя метода лишь явно указывает на отличие от метода получения
-            комментариев к колонкам) в базе данных (в текущей версии библиотеки, только
-            для PostgreSQL).
+            комментариев к колонкам) в базе данных (в текущей версии библиотеки, только для PostgreSQL).
 
             * Описание механики:
                 В данном методе используется вложенный служебный "self._reader()". Он получает "self.name_entity"
                 из "__init__" в качестве значения для плейсхолдера в sql запросе на получение комментариев из
                 служебных таблиц PostgreSQL, отвечающих за хранение различной статистики и метаданных
                 (tps://postgrespro.ru/docs/postgresql/14/monitoring-stats).
-                Далее, результат ответа преобразуется либо в {'table': table_comment} - по умолчанию (str_mode=False),
-                либо если str_mode=True в строку.
+
+                Далее, результат ответа преобразуется:
+                    либо в строку с комментарием - по умолчанию (service_mode=False),
+                    либо если service_mode=True в словарь типа {'table': table_comment}.
+
+                Режим service_mode=True предназначен для предоставления выходных данных совместимых с методом
+                "save_comments()", в случае, если необходима перегрузка комментариев (сначала получить, а после вашей
+                промежуточной  логики) сразу же сохранить в ту же или другую сущность (с той же структурой).
+                Подробнее смотрите описание "save_comments()".
 
             ***
 
@@ -748,22 +754,23 @@ class Tcommenter:
 
                 comments = Tcommenter(engine=ENGINE, name_table='sales', schema='audit')
 
-                # {'table': 'Комментарий к таблице.'}
+                # -> 'comment'.
                 comment_table_dict = comments.get_table_comments()
 
-                # 'Комментарий к таблице.'
-                comment_table_str = comments.get_table_comments(str_mode=True)
+                # -> {'table': 'comment'}.
+                comment_table_str = comments.get_table_comments(service_mode=True)
 
             ***
 
-            :param str_mode: "Переключатель" вида выходных данных, По умолчанию False.
-            :return: Если str_mode=False -> dict[str, str], если str_mode=True -> str (строка с комментарием к таблице).
-            :rtype: dict[str, str] | str.
+            :param service_mode: "Переключатель" вида выходных данных, по умолчанию False.
+            :return: Если service_mode=False -> str (строка с комментарием к таблице), \
+                если service_mode=True -> dict[str, str].
+            :rtype: str | dict[str, str].
             :raises: Возможны другие исключения во вложенных служебных методах (подробно смотрите в их описании).
         """
 
         # Валидация str_mode:
-        str_mode = self._validator(str_mode, bool)
+        service_mode = self._validator(service_mode, bool)
 
         # Получаем сырые данные после запроса (список кортежей):
         table_comment_tuple_list: list[tuple] = self._reader(
@@ -776,22 +783,60 @@ class Tcommenter:
         else:
             table_comment = ''  # Если комментарий отсутствует, возвращаем пустую строку.
 
-        if str_mode is True:
+        if service_mode is False :
             return table_comment
-        elif str_mode is False:
+        elif service_mode is True:
             return {'table': table_comment}
 
-    def get_column_comments(self, *column_index_or_name: int | str, str_mode=False) -> dict[str, dict] | str:
+    def get_column_comments(self,
+                            *column_index_or_name: int | str,
+                            service_mode: bool = False
+                            ) -> dict[str, str] | dict[str, dict[str, str]]:
         """
-            Метод для получения комментариев к колонкам либо по индексу, либо по имени колонки.
+            *** Метод для получения комментариев к колонкам по их имени или по индексу для сущностей базы данных. ***
 
-            На входе:
-                - column_index_or_name - индекс или имя колонки, для которой требуется считать комментарий.
-            Важно:
-                Если передать в параметры индекс и имя колонки - это вызовет исключение!
-                Метод обрабатывает параметры только одного типа (либо только индексы, либо имена колонок).
-            На выходе:
-               - словарь с вложенным словарем с комментариями: {'columns': {column: comments}}
+            Предназначен для получения комментариев к колонкам различных сущностей, таких как представления |
+            материализованные представления | ... в базе данных (в текущей версии библиотеки, только для PostgreSQL).
+
+            * Описание механики:
+                В данном методе используется вложенный служебный "self._reader()". Он получает "self.name_entity"
+                из "__init__", а так же переданные пользователем "*column_index_or_name" - имя или индекс требуемой
+                колонки в качестве значений для плейсхолдеров в sql запросе. Комментарии к сущностям хранятся
+                в служебных таблицах PostgreSQL, отвечающих за обработку различной статистики и метаданных
+                (tps://postgrespro.ru/docs/postgresql/14/monitoring-stats).
+
+                Далее, результат ответа преобразуется:
+                    либо в словарь типа ({'columns': {'column_name': 'comment'}}) - по умолчанию (service_mode=False),
+                    либо если service_mode=True в словарь типа {'column_name': 'comment'}.
+
+                Режим service_mode=True предназначен для предоставления выходных данных совместимых с методом
+                "save_comments()", в случае, если необходима перегрузка комментариев (сначала получить, а после вашей
+                промежуточной  логики) сразу же сохранить в ту же или другую сущность (с той же структурой).
+                Подробнее смотрите описание "save_comments()".
+
+                Важно!
+                Если передать в параметры совместно и индекс и имя колонки - это вызовет исключение! Метод обрабатывает
+                параметры только одного типа (либо только индексы, либо имена колонок).
+
+            ***
+
+            * Пример вызова:
+
+                comments = Tcommenter(engine=ENGINE, name_table='sales', schema='audit')
+
+                # -> {'column_name_1': 'comment_1', 'column_name_2': 'comment_2', ... }
+                comment_table_dict = comments.get_table_comments()
+
+                # -> {'columns': {'column_name_1': 'comment_1', 'column_name_2': 'comment_2', ... }}
+                comment_table_str = comments.get_table_comments(str_mode=True)
+
+            ***
+
+            :param column_index_or_name: *args - индексы или имена колонок, для которых требуется считать комментарии.
+            :param service_mode: "Переключатель" вида выходных данных, По умолчанию False.
+            :return: Если service_mode=False -> dict[str, str], если service_mode=True -> dict[str, dict[str, str]].
+            :rtype: dict[str, str] | dict[str, dict[str, str]].
+            :raises: Возможны другие исключения во вложенных служебных методах (подробно смотрите в их описании).
         """
 
         # Значение по умолчанию - получаем все комментарии к колонкам в таблице (без указания индекса или имени):
@@ -823,9 +868,9 @@ class Tcommenter:
         # Распаковывает кортеж из 2-х элементов (1, 'Alice') принимая первый за key и второй за value:
         _column_comments_dict = {key: value for key, value in column_comments_tuple_list}
 
-        if str_mode is True:
+        if service_mode is False:
             return _column_comments_dict
-        elif str_mode is False:
+        elif service_mode is True:
             return {'columns': _column_comments_dict}  # {'columns': {column: comments} }
 
     def get_all_comments(self) -> dict[str, str | dict]:
@@ -853,6 +898,20 @@ class Tcommenter:
 
     def save_comments(self, comments_dict: dict[str, str | dict]) -> None:  # Self , schema: str
         """
+
+
+
+                         Метод
+                "save_comments()" автоматически определит для каткого типа сущности предназначаются комментарии.
+                Выходные данные принимая вид сервисной структуры {'columns': {...}}, обеспечивают корректную их
+                обработку в "save_comments()". Ключи 'table' или 'columns' являются маркерами для включения
+                определенной логики обработки - это позволяет точно определять тип сущности для которой необходимо
+                выполнить сохранение метаданных.
+
+                Сервисная структура выходных данных необходима для обеспечения корректной передачи любых типов
+                комментариев (от сущностей или их колонок) в метод "save_comments()" в качестве аргументов.
+
+
             Метод для сохранения комментариев, предварительно полученных методами класса из объекта в базе данных
             (таблицы, представления, материализованные представления).
 
@@ -945,3 +1004,4 @@ class Tcommenter:
 
 # На выходе: str, последовательность имен или индексов колонок (через запятую в кавычках): columns_string
 # сущностям ('table', 'view', 'mview', ...)
+# На выходе:- словарь с вложенным словарем с комментариями: {'columns': {column: comments}}
