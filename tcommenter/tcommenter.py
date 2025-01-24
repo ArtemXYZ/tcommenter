@@ -10,7 +10,7 @@
 
 # ----------------------------------------------------------------------------------------------------------------------
 import re
-from typing import TypeVar # , Union
+from typing import TypeVar  # , Union
 
 # ---------------------------------- Импорт сторонних библиотек
 from sqlalchemy.engine import Engine
@@ -22,6 +22,8 @@ from sqlalchemy.sql.elements import TextClause
 from .sql.postgre_sql import *
 
 any_types = TypeVar('any_types')  # Создаем обобщённый тип данных.
+
+
 # ----------------------------------------------------------------------------------------------------------------------
 class Tcommenter:
     """
@@ -729,7 +731,7 @@ class Tcommenter:
         for key_name_column, value_comment in comments_columns.items():
             self._create_comment(type_comment='COLUMN', comment_value=value_comment, name_column=key_name_column)
 
-    def get_table_comments(self, service_mode: bool = False) ->  str | dict[str, str]:
+    def get_table_comments(self, service_mode: bool = False) -> str | dict[str, str]:
         """
             *** Метод для получения комментариев к таблицам (и к другим сущностям, кроме колонок) в базе данных. ***
 
@@ -787,7 +789,7 @@ class Tcommenter:
         else:
             table_comment = ''  # Если комментарий отсутствует, возвращаем пустую строку.
 
-        if service_mode is False :
+        if service_mode is False:
             return table_comment
         elif service_mode is True:
             return {'table': table_comment}
@@ -879,21 +881,35 @@ class Tcommenter:
 
     def get_all_comments(self) -> dict[str, str | dict]:
         """
-            Метод для получения всех комментариев к колонкам и таблицам.
-            На выходе - словарь типа:
-                result = {
-                    'table': 'set_table_comment',
-                    'columns': {
-                        'column1': 'column1_comment',
-                        'column2': 'column2_comment',
-                        'column3': 'column3_comment',
-                    }
-                }.
+            *** Метод для получения всех комментариев для сущности (к ней и ее колонкам) базы данных. ***
+
+            Предназначен для получения всех имеющихся комментариев для сущности (представления | материализованного
+            представления | ...), ее собственных и к колонкам (в текущей версии библиотеки, только для PostgreSQL).
+
+            * Описание механики:
+                Основная и единственная логика заключается в сложении двух словарей полученных в результате работы
+                "get_table_comments()" и  "get_column_comments()" с service_mode=True.
+
+            ***
+
+            * Пример вызова:
+
+                comments = Tcommenter(engine=ENGINE, name_table='sales', schema='audit')
+
+                # -> {'table': 'table_comment', 'columns': {'column_1': 'column_1_comment', ...}}.
+                all_comments_dict = comments.get_all_comments(service_mode=True)
+                comments.save_comments(all_comments_dict)
+
+            ***
+
+            :return: {'table': 'table_comment', 'columns': {'column_1': 'column_1_comment', ...}}.
+            :rtype: dict[str, str | dict].
+            :raises: Возможны другие исключения во вложенных служебных методах (подробно смотрите в их описании).
         """
 
         # Получение всех комментариев:
-        table_comment = self.get_table_comments()
-        column_comments_dict = self.get_column_comments()
+        table_comment = self.get_table_comments(service_mode=True)
+        column_comments_dict = self.get_column_comments(service_mode=True)
 
         # Преобразование полученных данных в единый словарь:
         all_comments_table_dict = table_comment | column_comments_dict
@@ -1008,28 +1024,3 @@ class Tcommenter:
                 f' name_table: {self.name_entity}, engine: {self.engine}).'
                 )
 # ----------------------------------------------------------------------------------------------------------------------
-
-
-# На выходе: str, последовательность имен или индексов колонок (через запятую в кавычках): columns_string
-# сущностям ('table', 'view', 'mview', ...)
-# На выходе:- словарь с вложенным словарем с комментариями: {'columns': {column: comments}}
-# #             к таблицам и другим сущностям, таким как представлениям |
-#             материализованным представлениям | ... (имя метода лишь явно указывает на отличие от метода получения
-#             комментариев к колонкам) в базе данных (в текущей версии библиотеки, только для PostgreSQL).
-# #
-#             Метод для сохранения комментариев, предварительно полученных методами класса из объекта в базе данных
-#             (таблицы, представления, материализованные представления).
-#                 Для данного метода необходима "сервисная структура" выходных данных (в методах получения комментариев
-#                 необходимо установить service_mode=True).
-#        для обеспечения корректной передачи любых типов комментариев
-#                 в метод "save_comments()" в качестве аргументов.
-#             На входе словарь типа:
-#                 {
-#                     'table': 'set_table_comment',
-#                     'columns': {
-#                         'column1': 'column1_comment',
-#                         'column2': 'column2_comment',
-#                         'column3': 'column3_comment',
-#                     }
-#                 }
-#                 или по отдельности его составляющие (либо только словарь с ключом table, либо columns).
