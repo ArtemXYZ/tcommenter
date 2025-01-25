@@ -71,7 +71,7 @@ class Tcommenter:
 
             :param value: Значение, которое требуется проверить.
             :param check_type: Один или несколько типов данных, допустимых для значения value.
-            :return: Возвращает значение value, если оно соответствует одному из типов check_type.
+            :return: Возвращает переданное исходное значение value, если оно соответствует одному из типов check_type.
             :rtype: any_types, возвращается тип исходный тип данных проверяемого аргумента.
             :raises TypeError: Если значение value не соответствует ни одному из указанных типов данных.
         """
@@ -80,7 +80,8 @@ class Tcommenter:
             return value
         else:
             raise TypeError(f'Недопустимый тип данных: "{type(value).__name__}", для аргумента: "{value}".')
-                            # Invalid data type: "{type(value).__name__}", for the argument: "{value}".'
+            # Invalid data type: "{type(value).__name__}", for the argument: "{value}".'
+
     def _stop_sql_injections(self, sql_param_string: str) -> str:
         """
             *** Приватный метод экранирования запросов от sql-инъекций. ***
@@ -249,8 +250,8 @@ class Tcommenter:
             return fin_sql
 
         # Ошибка не возникнет если, все существующие ключи совпадут, а излишние игнорируются.
-        except KeyError:
-            raise ValueError(f'Ошибка форматирования sql-запроса: переданный ключ не найден.')  # {error}
+        except KeyError as error:
+            raise ValueError(f'Ошибка форматирования sql-запроса: переданный ключ "{error.args[0]}" не найден.')
 
     def _generate_params_list_for_sql(self, params: tuple[int | str] = None) -> list[int | str]:
         """
@@ -337,11 +338,12 @@ class Tcommenter:
 
                 # Если не все элементы имеют один и тот же тип или недопустимые:
                 else:
-                    raise TypeError(
-                        f'Переданные аргументы не соответствуют единому типу данных, '
-                        f'должны быть либо только str (имена колонок),'
-                        f' либо только int (индексы колонок).'
-                    )
+                    raise TypeError(f'Ошибка валидации входных данных! '
+                                    f'Переданные аргументы не соответствуют единому типу данных, получено: '
+                                    f'{[f'(value: "{param}", type: {type(param).__name__})' \
+                                        for param in param_column_index_or_name]}'
+                                    f'Должны быть либо только str (имена колонок), либо только int (индексы колонок).'
+                                    )
 
             elif isinstance(param_column_index_or_name[0], int):
 
@@ -355,11 +357,12 @@ class Tcommenter:
 
                 # Если не все элементы имеют один и тот же тип или недопустимые:
                 else:
-                    raise TypeError(
-                        f'Переданные аргументы не соответствуют единому типу данных, '
-                        f'должны быть либо только str (имена колонок),'
-                        f' либо только int (индексы колонок).'
-                    )
+                    raise TypeError(f'Ошибка валидации входных данных! '
+                                    f'Переданные аргументы не соответствуют единому типу данных, получено: '
+                                    f'{[f'(value: "{param}", type: {type(param).__name__})' \
+                                        for param in param_column_index_or_name]}'
+                                    f'Должны быть либо только str (имена колонок), либо только int (индексы колонок).'
+                                    )
 
     def _reader(self, sql: str | TextClause, **params: str | int | list) -> list[tuple]:
         """
@@ -520,7 +523,11 @@ class Tcommenter:
                 self._recorder(mutable_sql_variant, comment=comment_value)
 
             else:
-                raise ValueError(f'Не передано значение для аргумента: name_column.')
+                raise TypeError(f'Отсутствует требуемый именованный аргумент "name_column"! '
+                                f'Если тип создаваемого комментария - колонка (type_comment == "COLUMN"), '
+                                f'передача аргумента "name_column" - обязательна! '
+                                f'В остальных случаях - опционально.'
+                                )
 
 
         # Если комментарий не для колонки, значит для любой другой сущности (таблица, представление, ...)
@@ -570,8 +577,8 @@ class Tcommenter:
             for key_name_column, value_comment in comments_columns_dict.items():
                 self._create_comment(type_comment='COLUMN', comment_value=value_comment, name_column=key_name_column)
         else:
-            raise ValueError(f'Аргумент "comments_columns_dict" не содержит значения,'
-                             f' передано: ({comments_columns_dict}).')
+            raise ValueError(f'Ошибка: аргумент "comments_columns_dict" не может быть пустым. '
+                             f' Переданный словарь не содержит значений: {comments_columns_dict}.')
 
     def get_type_entity(self) -> str:
         """
@@ -975,8 +982,10 @@ class Tcommenter:
                 {'table': 'table_comment'} | {'columns': {'column_1': 'column_1_comment', ...}}.
             :return: None.
             :rtype: None.
-            :raises: ValueError, Возможны другие исключения во вложенных служебных методах (подробно смотрите в их \
-                описании).
+            :raises ValueError: Будет вызвано исключение, если будет попытка сохранения комментариев к типу сущности \
+                не предусмотренному в текущей реализации библиотеки. Метод предусматривает работу только с таблицами, \
+                представлениями и материализованными представлениями.
+                Возможны другие исключения во вложенных служебных методах (подробно смотрите в их описании).
         """
 
         # Если переданный аргумент не пустой:
@@ -991,9 +1000,11 @@ class Tcommenter:
             # Проводим валидацию (исключаем работу с сущностями базы данных неподдерживаемыми методом):
             if type_entity not in ('table', 'view', 'mview'):
                 raise ValueError(
-                    f'Невозможно сохранить комментарий к сущности, указанной в экземпляре класса, '
-                    f'метод предусматривает работу только с таблицами, представлениями,'
-                    f' материализованными представлениями.')
+                    f'Ошибка: невозможно сохранить комментарий к сущности, указанной в экземпляре класса! Метод '
+                    f'предусматривает работу только с таблицами, представлениями и материализованными представлениями. '
+                    f'Тип сущности {type_entity}, схема: "{self.schema}", имя: "{self.name_entity}").'
+
+                )
 
             # Анализ входных данных:
             for key, value in comments_dict.items():
@@ -1020,17 +1031,22 @@ class Tcommenter:
                         self._set_column_comment(value)
 
                     else:
-                        raise ValueError(f'Отсутствуют данные по комментариям для колонок (вложенный словарь пуст),'
-                                         f' извлечено: ({value}).')
+                        raise ValueError(f'Ошибка: отсутствуют данные для обработки (комментарии для колонок)! '
+                                         f'Получено: {comments_dict}!')
+
 
                 else:
-                    raise ValueError(f'Переданный аргумент ({comments_dict}) не соответствует требуемой структуре, '
-                                     f'установленной в методе для нормальной работы.'
+                    structure = "{'columns': {...}} | {'table': 'table_comment'} | {'columns': {...}, \
+                    table': 'table_comment'}"
+                    raise ValueError(f'Ошибка: переданный аргумент "comments_dict" не соответствует требуемой '
+                                     f'сервисной структуре входных данных, установленной в методе для правильной '
+                                     f'работы! Нормальная "сервисная структура" имеет вид: {structure}. '
+                                     f"Получено: {comments_dict}"
                                      )
 
         else:
-            raise ValueError(f'Отсутствуют данные для обработки. '
-                             f'Переданный аргумент ({comments_dict}) не содержит информации')
+            raise ValueError(f'Ошибка: отсутствуют данные для обработки! '
+                             f'Переданный аргумент "comments_dict" не содержит информации: "{comments_dict}".')
 
     def __str__(self):
         return (f'{self.__class__.__name__}(schema: {self.schema},'

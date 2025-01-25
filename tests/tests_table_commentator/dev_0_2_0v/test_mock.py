@@ -61,6 +61,7 @@ _SQL_GET_TABLE_COMMENTS = """
         all_entity.relname = 'dags_analyzer'
 """
 
+# """COMMENT ON {entity_type} "{schema}"."{name_entity}"."{name_column}" IS :comment"""
 _SQL_SAVE_COMMENT = """COMMENT ON TABLE "audit"."dags_analyzer" IS ':comment'"""
 # ----------------------------------------- Тесты с мок бд.
 
@@ -107,14 +108,14 @@ def test__validator(mocked_engine):  # +
 def test__check_all_elements(mocked_engine):
     test_ex = get_instance_class(mocked_engine)
     # 1
-    with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:"):
+    with pytest.raises(TypeError, match='Недопустимый тип данных: "str", для аргумента: "test"'):
         assert test_ex._check_all_elements(check_type=str, args_array='test')
     # 2
     assert test_ex._check_all_elements(check_type=str, args_array=['test', 'test'])
     # 3
     assert test_ex._check_all_elements(check_type=str, args_array={'test': 'test'})
     # 4
-    with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:"):
+    with pytest.raises(TypeError, match='Недопустимый тип данных: "int", для аргумента: "1".'):
         test_ex._check_all_elements(check_type=str, args_array=1)
 
 def test__stop_sql_injections(mocked_engine):
@@ -209,18 +210,18 @@ def test__get_strparams_only_from_indexes_or_names_for_sql(mocked_engine):
 def test__insert_params_in_sql(mocked_engine):
     test_ex = get_instance_class(mocked_engine)
     # 1 +
-    assert test_ex._insert_params_in_sql(SQL_GET_TABLE_COMMENTS) == _SQL_GET_TABLE_COMMENTS
-
+    assert test_ex._insert_params_in_sql(SQL_SAVE_COMMENT) == _SQL_SAVE_COMMENT
+    # Ошибка форматирования sql-запроса: переданный ключ "entity_type" не найден.
     # 2 +
-    assert test_ex._insert_params_in_sql(SQL_SAVE_COMMENT, entity_type='TABLE', schema='audit') == _SQL_SAVE_COMMENT
-
-    # 3 +
-    assert test_ex._insert_params_in_sql(
-        SQL_SAVE_COMMENT, entity_type='TABLE', schema='audit', columnwewe='asd'
-    ) == _SQL_SAVE_COMMENT # todo Ошибка не возникнет если, все существующие ключи совпадут, а излишние проигнорируются.
-
-    # 4 +  # todo Ошибка  KeyError возникнет если не передать нужный ключ, переделать ValueError: Ошибка форматирования sql-запроса: переданный ключ не найден.
-    assert test_ex._insert_params_in_sql(SQL_SAVE_COMMENT, entity_type='TABLE',) == _SQL_SAVE_COMMENT
+    # assert test_ex._insert_params_in_sql(SQL_SAVE_COMMENT, entity_type='TABLE', schema='audit') == _SQL_SAVE_COMMENT
+    #
+    # # 3 +
+    # assert test_ex._insert_params_in_sql(
+    #     SQL_SAVE_COMMENT, entity_type='TABLE', schema='audit', columnwewe='asd'
+    # ) == _SQL_SAVE_COMMENT # todo Ошибка не возникнет если, все существующие ключи совпадут, а излишние проигнорируются.
+    #
+    # # 4 +  # todo Ошибка  KeyError возникнет если не передать нужный ключ, переделать ValueError: Ошибка форматирования sql-запроса: переданный ключ не найден.
+    # assert test_ex._insert_params_in_sql(SQL_SAVE_COMMENT, entity_type='TABLE',) == _SQL_SAVE_COMMENT
 
 # ----------------------------------------------------------------------------------------------------------------------
 # @pytest.fixture

@@ -1,7 +1,7 @@
-from tcommenter.tcommenter import Tcommenter
-from tests.connnections.connection import ENGINE_MART_SV
+# from tcommenter.tcommenter import Tcommenter
+# from tests.connnections.connection import ENGINE_MART_SV
 
-comments = Tcommenter(engine=ENGINE_MART_SV, name_table='dags_analyzer', schema='audit')
+# comments = Tcommenter(engine=ENGINE_MART_SV, name_table='dags_analyzer', schema='audit')
 # a = comments.get_table_comments()
 # dict_comments = comments.get_column_comments('tags')
 # dict_comments = comments.get_all_comments()
@@ -21,7 +21,16 @@ comments = Tcommenter(engine=ENGINE_MART_SV, name_table='dags_analyzer', schema=
 # создать тесты в сл выпуске
 
 # Список всех методов:
-for r in Tcommenter.__dict__:
-    print(r)
+# for r in Tcommenter.__dict__:
+#     print(r)
+#
 
+# structure = "{'columns': {...}} | {'table': 'table_comment'} | {'columns': {...}, \
+# table': 'table_comment'}"
+# print(f'Ошибка: переданный аргумент ( ) не соответствует требуемой '
+#                  f'структуре, установленной в методе для нормальной работы. '
+#                  f'Принимаемый аргумент "comments_dict" должен соответствовать структуре: '
+#                  f"{structure}")
 
+#                                      f' Содержимое принимаемого аргумента "comments_dict" должно соответствовать виду: '
+#                                      f"{structure}. "
