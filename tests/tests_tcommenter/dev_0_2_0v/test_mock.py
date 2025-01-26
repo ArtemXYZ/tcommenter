@@ -73,17 +73,13 @@ def mocked_engine():
     engine.connect.return_value.__enter__.return_value.execute = MagicMock()  # Мокаем execute
     return engine
 
-
 # Возвращаем экземпляр класса с моком:
 def get_instance_class(mocked_engine) -> Tcommenter:
     return Tcommenter(engine=mocked_engine, name_table="dags_analyzer", schema="audit")
 
-
-# +
 def test_get_instance_class(mocked_engine):
     test_instance = get_instance_class(mocked_engine)
     assert isinstance(test_instance, Tcommenter)
-
 
 def test_reader(mocked_engine):
     test_instance = get_instance_class(mocked_engine)
@@ -93,18 +89,19 @@ def test_reader(mocked_engine):
 # row_sql_recorder
 # recorder
 # ------------------------------------- Не требуют подключения:
-# +
+
+# ------------------------------------------------ Тесты:
+
 def test__validator(mocked_engine):  # +
     test_ex = get_instance_class(mocked_engine)
     # 1
-    assert test_ex._validator('qqqq', str)
+    assert test_ex._validator('test1', str)
     # 2
-    with pytest.raises(TypeError, match='Недопустимый тип данных: "str", для аргумента: "qqqq"'):
-        test_ex._validator('qqqq', dict, int)
+    with pytest.raises(TypeError, match='Недопустимый тип данных: "str", для аргумента: "test2"'):
+        test_ex._validator('test2', dict, int)
     # 3
-    assert test_ex._validator('qqqq', str, int)
+    assert test_ex._validator('test3', str, int)
 
-# +
 def test__check_all_elements(mocked_engine):
     test_ex = get_instance_class(mocked_engine)
     # 1
@@ -118,66 +115,42 @@ def test__check_all_elements(mocked_engine):
     with pytest.raises(TypeError, match='Недопустимый тип данных: "int", для аргумента: "1".'):
         test_ex._check_all_elements(check_type=str, args_array=1)
 
-def test__stop_sql_injections(mocked_engine):
+@pytest.mark.parametrize(
+    "sql_param_string, expected_exception, match, result",
+    [
+        ('test', None, None, 'test'),
+        ('', ValueError, 'Ошибка проверки строки:', None),
+        (' - ', ValueError, 'Ошибка проверки строки:', None),
+        ('-', None, None, '-'),
+        ('--', ValueError, 'Ошибка проверки строки:', None),
+        ('*', ValueError, 'Ошибка проверки строки:', None),
+        (';', ValueError, 'Ошибка проверки строки:', None),
+        ('DROP', ValueError, 'Ошибка проверки строки:', None),
+        ('CREATE', ValueError, 'Ошибка проверки строки:', None),
+        ('ALTER', ValueError, 'Ошибка проверки строки:', None),
+        ('INSERT', ValueError, 'Ошибка проверки строки:', None),
+        ('UPDATE', ValueError, 'Ошибка проверки строки:', None),
+        ('DELETE', ValueError, 'Ошибка проверки строки:', None),
+        ('DELET', None, None, 'DELET'),
+        (1, TypeError, 'Недопустимый тип данных:', None),
+        ('sdfdksdsd---*D\\', ValueError, 'Ошибка проверки строки:', None),
+
+    ]
+)
+def test__stop_sql_injections(mocked_engine, sql_param_string, expected_exception, match, result):
     test_ex = get_instance_class(mocked_engine)
+    if expected_exception:
+        with pytest.raises(expected_exception, match=match):
+            test_ex._stop_sql_injections(sql_param_string)
+    else:
+        assert test_ex._stop_sql_injections(sql_param_string) == result
 
-    # 1
-    with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
-        assert test_ex._stop_sql_injections('')  # Изменить ли поведение (пропускать пустой символ)?
 
-    # 2
-    with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
-        assert test_ex._stop_sql_injections(' - ')
 
-    # 3
-    assert test_ex._stop_sql_injections('-')
 
-    # 4
-    with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
-        assert test_ex._stop_sql_injections('--')
 
-    # 5
-    with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
-        assert test_ex._stop_sql_injections('*')
 
-    # 6
-    with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
-        assert test_ex._stop_sql_injections(';')
 
-    # 7
-    with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
-        assert test_ex._stop_sql_injections('DROP')
-
-    # 8
-    with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
-        assert test_ex._stop_sql_injections('CREATE')
-
-    # 9
-    with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
-        assert test_ex._stop_sql_injections('ALTER')
-
-    # 10
-    with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
-        assert test_ex._stop_sql_injections('INSERT')
-
-    # 11
-    with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
-        assert test_ex._stop_sql_injections('UPDATE')
-
-    # 12
-    with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
-        assert test_ex._stop_sql_injections('DELETE')
-
-    # 13
-    assert test_ex._stop_sql_injections('DELET')
-
-    # 14
-    with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:"):
-        assert test_ex._stop_sql_injections(1)
-
-    # 15
-    with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
-        assert test_ex._stop_sql_injections('sdfdksdsd---*D\\')
 
 def test__get_strparams_only_from_indexes_or_names_for_sql(mocked_engine):
     test_ex = get_instance_class(mocked_engine)
@@ -229,30 +202,90 @@ def test__insert_params_in_sql(mocked_engine):
 #     mock = MagicMock()
 #     return mock
 
-# ------------------------------------- Более новый подход
+# ------------------------------------- Olds
 # @pytest.mark.parametrize(
-#     # Имена передаваемых аргументов.
-#     "sql_param_string, expected_exception, match",
 #     # Передаваемые значения аргументов.
+#     "check_value, check_type, expected_result, expected_exception, match",
 #     [
-#         ('', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
-#         (' - ', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
-#         ('-', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
-#         ('*', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
-#         (';', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
-#         ('DROP', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
-#         ('CREATE', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
-#         ('ALTER', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
-#         ('INSERT', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
-#         ('UPDATE', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
-#         ('DELETE', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
-#         ('DELET', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
-#         (1, ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
-#         ('sdfdksdsd---*D\\', ValueError, "Ошибка! Недопустимый символ в проверяемой строке."),
+#         ('test1', 'test1', str, None, None),
+#         # (mocked_engine, dict, dict, ValueError, 'Недопустимый тип данных: "str", для аргумента: "qqqq"'),
+#         # ((4,), 11, 9, TypeError, 'Недопустимый тип данных:'),
+#
 #     ]
 # )
-# def test__stop_sql_injections(mocked_engine, sql_param_string, expected_exception, match):
+# def test__validator(mocked_engine, check_value, check_type, expected_result, expected_exception, match):
+#     test_ex = get_instance_class(mocked_engine)
+#     if expected_exception:
+#
+#         with pytest.raises(
+#                            check_value=check_value,
+#                            check_type=check_type,
+#                            expected_result=expected_result,
+#                            expected_exception=expected_exception,
+#                            match=match
+#                            ):
+#             test_ex._validator(check_value, check_type)
+#     else:
+#         assert test_ex._validator(check_value, check_type) == expected_result
+
+# -----------
+# def test__stop_sql_injections(mocked_engine):
 #     test_ex = get_instance_class(mocked_engine)
 #
-#     with pytest.raises(expected_exception, match=match):
-#         test_ex._stop_sql_injections(sql_param_string)
+#     # 1
+#     with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
+#         assert test_ex._stop_sql_injections('')  # Изменить ли поведение (пропускать пустой символ)?
+#
+#     # 2
+#     with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
+#         assert test_ex._stop_sql_injections(' - ')
+#
+#     # 3
+#     assert test_ex._stop_sql_injections('-')
+#
+#     # 4
+#     with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
+#         assert test_ex._stop_sql_injections('--')
+#
+#     # 5
+#     with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
+#         assert test_ex._stop_sql_injections('*')
+#
+#     # 6
+#     with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
+#         assert test_ex._stop_sql_injections(';')
+#
+#     # 7
+#     with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
+#         assert test_ex._stop_sql_injections('DROP')
+#
+#     # 8
+#     with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
+#         assert test_ex._stop_sql_injections('CREATE')
+#
+#     # 9
+#     with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
+#         assert test_ex._stop_sql_injections('ALTER')
+#
+#     # 10
+#     with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
+#         assert test_ex._stop_sql_injections('INSERT')
+#
+#     # 11
+#     with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
+#         assert test_ex._stop_sql_injections('UPDATE')
+#
+#     # 12
+#     with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
+#         assert test_ex._stop_sql_injections('DELETE')
+#
+#     # 13
+#     assert test_ex._stop_sql_injections('DELET')
+#
+#     # 14
+#     with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:"):
+#         assert test_ex._stop_sql_injections(1)
+#
+#     # 15
+#     with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
+#         assert test_ex._stop_sql_injections('sdfdksdsd---*D\\')
