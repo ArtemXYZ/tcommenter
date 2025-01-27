@@ -242,8 +242,8 @@ class Tcommenter:
         try:
             if not sql_params:
                 # Проверка на инъекции пройдена при инициализации:
-                fin_sql = valid_sql.format(name_entity=self.name_entity)
-
+                fin_sql = valid_sql.format(name_entity=self.name_entity)  # todo: возникает ошибка, если не все ключи будут переданы
+                # todo: возможно нужно еще передавать схему!?
             else:
                 fin_sql = valid_sql.format(name_entity=self.name_entity, **sql_params)
 
@@ -251,7 +251,8 @@ class Tcommenter:
 
         # Ошибка не возникнет если, все существующие ключи совпадут, а излишние игнорируются.
         except KeyError as error:
-            raise ValueError(f'Ошибка форматирования sql-запроса: переданный ключ "{error.args[0]}" не найден.')
+            raise ValueError(f'Ошибка форматирования SQL-запроса: плейсхолдер "{error.args[0]}" не получил значения, '
+                             f'(не был передан соответствующий аргумент или имя плейсхолдера не верно).')
 
     def _generate_params_list_for_sql(self, params: tuple[int | str] = None) -> list[int | str]:
         """
@@ -515,7 +516,7 @@ class Tcommenter:
                 mutable_sql_variant = self._insert_params_in_sql(
                     SQL_SAVE_COMMENT_COLUMN,
                     entity_type=self.PARAMS_SQL.get(type_comment),
-                    schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации:
+                    schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации: # todo: возможно нужно перенести по умолчанию в _insert_params_in_sql
                     name_column=self._stop_sql_injections(name_column),
                 )
 
@@ -535,7 +536,7 @@ class Tcommenter:
             mutable_sql_variant = self._insert_params_in_sql(
                 SQL_SAVE_COMMENT,
                 entity_type=self.PARAMS_SQL.get(type_comment),
-                schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации:
+                schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации: # todo: возможно нужно перенести по умолчанию в _insert_params_in_sql
             )
 
             self._recorder(mutable_sql_variant, comment=comment_value)
