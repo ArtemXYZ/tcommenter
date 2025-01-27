@@ -77,9 +77,9 @@ def pytest_raises_router(func, create_mocked_engine, exception, match, result, *
 
     if exception:
         with pytest.raises(exception, match=match):
-            func(*args, **kwargs)
+            func(*args)
     else:
-        assert func(*args, **kwargs) == result
+        assert func(*args) == result
 
     return None
 
@@ -111,20 +111,16 @@ class TestMethodsTcommenterNoExecuteSQL:
         test_class = get_instance_test_class(create_mocked_engine)
         assert isinstance(test_class, Tcommenter)
 
-
-
-
-
-
+    # test "_validator":
     @pytest.mark.parametrize(
         "value_test, check_type_test, exception, match, result",
         [
             ('test', str, None, None, 'test'),
             ('test2', (dict, int,), TypeError, 'Недопустимый тип данных: "str", для аргумента: "test2"', None),
-            ('test3', (str, int,) ,None, None, 'test3'),
+            ('test3', (str, int,), None, None, 'test3'),
         ]
     )
-    def test__validator_(self, create_mocked_engine, value_test, check_type_test, exception, match, result):
+    def test__validator(self, create_mocked_engine, value_test, check_type_test, exception, match, result):
         test_class = get_instance_test_class(create_mocked_engine)
         pytest_raises_router(
             test_class._validator,
@@ -137,23 +133,32 @@ class TestMethodsTcommenterNoExecuteSQL:
             # **kwargs:
         )
 
-
-
-
-
-    def test__check_all_elements(self, create_mocked_engine):
+    # test "_check_all_elements":
+    @pytest.mark.parametrize(
+        "check_type_test, value_dict_test, exception, match, result",
+        [
+            (str, {'args_array': 'test'}, TypeError, 'Недопустимый тип данных: "str", для аргумента: "test"', None),
+            (str, {'args_array': 1}, TypeError, 'Недопустимый тип данных: "int", для аргумента: "1".', None),
+            (int, {'args_array': 1}, None, None, True),
+            (str, {'args_array': ['test', 'test']}, None, None, True),
+            (str, {'args_array': {'test': 'test'}}, None, None, True),
+        ]
+    )
+    def test__check_all_elements(
+            self, create_mocked_engine, check_type_test, value_dict_test, exception, match, result
+    ):
         test_class = get_instance_test_class(create_mocked_engine)
-        # 1
-        with pytest.raises(TypeError, match='Недопустимый тип данных: "str", для аргумента: "test"'):
-            assert test_class._check_all_elements(check_type=str, args_array='test')
-        # 2
-        assert test_class._check_all_elements(check_type=str, args_array=['test', 'test'])
-        # 3
-        assert test_class._check_all_elements(check_type=str, args_array={'test': 'test'})
-        # 4
-        with pytest.raises(TypeError, match='Недопустимый тип данных: "int", для аргумента: "1".'):
-            test_class._check_all_elements(check_type=str, args_array=1)
-
+        pytest_raises_router(
+            # Passing the function under test:
+            test_class._check_all_elements,
+            # Other variables
+            create_mocked_engine,
+            exception,
+            match,
+            result,
+            # *args (function params):
+            check_type_test, value_dict_test,
+        )
 
     @pytest.mark.parametrize(
         "sql_param_string, exception, match, result",
@@ -174,17 +179,21 @@ class TestMethodsTcommenterNoExecuteSQL:
             ('DELET', None, None, 'DELET'),
             (1, TypeError, 'Недопустимый тип данных:', None),
             ('sdfdksdsd---*D\\', ValueError, 'Ошибка проверки строки:', None),
-
         ]
     )
     def test__stop_sql_injections(self, create_mocked_engine, sql_param_string, exception, match, result):
         test_class = get_instance_test_class(create_mocked_engine)
-
-        if exception:
-            with pytest.raises(exception, match=match):
-                test_class._stop_sql_injections(sql_param_string)
-        else:
-            assert test_class._stop_sql_injections(sql_param_string) == result
+        pytest_raises_router(
+            # Passing the function under test:
+            test_class._stop_sql_injections,
+            # Other variables
+            create_mocked_engine,
+            exception,
+            match,
+            result,
+            # *args (function params):
+            sql_param_string,
+        )
 
 
 # @pytest.mark.parametrize(
@@ -391,3 +400,17 @@ def test_reader(create_mocked_engine):
 #         test_class._validator('test2', dict, int)
 #     # 3
 #     assert test_class._validator('test3', str, int)
+
+# # +
+# def test__check_all_elements(self, create_mocked_engine):
+#     test_class = get_instance_test_class(create_mocked_engine)
+#     # 1
+#     with pytest.raises(TypeError, match='Недопустимый тип данных: "str", для аргумента: "test"'):
+#         assert test_class._check_all_elements(check_type=str, args_array='test')
+#     # 2
+#     assert test_class._check_all_elements(check_type=str, args_array=['test', 'test'])
+#     # 3
+#     assert test_class._check_all_elements(check_type=str, args_array={'test': 'test'})
+#     # 4
+#     with pytest.raises(TypeError, match='Недопустимый тип данных: "int", для аргумента: "1".'):
+#         test_class._check_all_elements(check_type=str, args_array=1)
