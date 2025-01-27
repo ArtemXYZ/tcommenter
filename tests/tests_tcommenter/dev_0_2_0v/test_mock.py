@@ -33,6 +33,7 @@
 
 # import unittest
 import pytest
+
 from unittest.mock import MagicMock, patch
 from sqlalchemy import text
 from sqlalchemy.engine.base import Engine
@@ -67,19 +68,44 @@ _SQL_SAVE_COMMENT_TEST_2_3 = """COMMENT ON TABLE "audit"."dags_analyzer" IS :com
 _SQL_SAVE_COMMENT_TEST_4 = """COMMENT ON TABLE "{schema}"."dags_analyzer" IS :comment"""
 
 
+_SQL_GET_COLUMN_COMMENTS_BY_INDEX = """
+    SELECT 
+        cols.attname AS column_name,       
+        comments.description AS description         
+    FROM 
+        pg_class AS all_entity
+    INNER JOIN 
+        pg_description AS comments              
+    ON 
+        all_entity.oid = comments.objoid
+    AND
+        comments.objsubid > 0
+    AND
+        all_entity.relname = "dags_analyzer"
+    INNER JOIN 
+        pg_attribute AS cols                  
+    ON
+        cols.attnum = comments.objsubid 
+    AND
+        cols.attrelid = all_entity.oid      
+    WHERE 
+         comments.objsubid = 'name_column_test_1, name_column_test_2'
+"""
+
+
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------- Инструменты:
 # Функция управления логикой вызова pytest.raises():
-def pytest_raises_router(func, create_mocked_engine, exception, match, result, *args, **kwargs):
+def pytest_raises_router(func, create_mocked_engine, exception, match, result, *args, **kwargs):   # , **kwargs
     """
         Функция управления логикой вызова pytest.raises().
     """
 
     if exception:
         with pytest.raises(exception, match=match):
-            func(*args)
+            func(*args, **kwargs)  # , **kwargs
     else:
-        assert func(*args) == result
+        assert func(*args, **kwargs) == result   #
 
     return None
 
@@ -111,7 +137,7 @@ class TestMethodsTcommenterNoExecuteSQL:
         test_class = get_instance_test_class(create_mocked_engine)
         assert isinstance(test_class, Tcommenter)
 
-    # test "_validator":
+    # ---------------------------------- *** "_validator" ***
     @pytest.mark.parametrize(
         "value_test, check_type_test, exception, match, result",
         [
@@ -123,17 +149,18 @@ class TestMethodsTcommenterNoExecuteSQL:
     def test__validator(self, create_mocked_engine, value_test, check_type_test, exception, match, result):
         test_class = get_instance_test_class(create_mocked_engine)
         pytest_raises_router(
+            # ---------------------------------- Passing the function under test:
             test_class._validator,
+            # ---------------------------------- Other variables
             create_mocked_engine,
             exception,
             match,
             result,
-            # *args:
+            # ---------------------------------- *args:
             value_test, check_type_test
-            # **kwargs:
         )
 
-    # test "_check_all_elements":
+    # ---------------------------------- *** "_check_all_elements" ***
     @pytest.mark.parametrize(
         "check_type_test, value_dict_test, exception, match, result",
         [
@@ -149,17 +176,18 @@ class TestMethodsTcommenterNoExecuteSQL:
     ):
         test_class = get_instance_test_class(create_mocked_engine)
         pytest_raises_router(
-            # Passing the function under test:
+            # ---------------------------------- Passing the function under test:
             test_class._check_all_elements,
             # Other variables
             create_mocked_engine,
             exception,
             match,
             result,
-            # *args (function params):
+            # ---------------------------------- *args (function params):
             check_type_test, value_dict_test,
         )
 
+    # ---------------------------------- *** "_stop_sql_injections" ***
     @pytest.mark.parametrize(
         "sql_param_string, exception, match, result",
         [
@@ -184,59 +212,108 @@ class TestMethodsTcommenterNoExecuteSQL:
     def test__stop_sql_injections(self, create_mocked_engine, sql_param_string, exception, match, result):
         test_class = get_instance_test_class(create_mocked_engine)
         pytest_raises_router(
-            # Passing the function under test:
+            # ---------------------------------- Passing the function under test:
             test_class._stop_sql_injections,
-            # Other variables
+            # ---------------------------------- Other variables
             create_mocked_engine,
             exception,
             match,
             result,
-            # *args (function params):
+            # ---------------------------------- *args (function params):
             sql_param_string,
         )
 
 
-# @pytest.mark.parametrize(
-#     "sql_blank, kwargs_sql_params, exception, match, result ",
-#     [
-#         (SQL_SAVE_COMMENT, {': '', }, None, 'test'),
-#     ]
-# )
-# def test__insert_params_in_sql():
-#     if exception:
-#         with pytest.raises(exception, match=match):
-#             test_class._insert_params_in_sql(sql_blank, *kwargs_sql_params)
-#     else:
-#         assert test_class._insert_params_in_sql(sql_blank, *kwargs_sql_params) == result
+    # ---------------------------------- *** "_insert_params_in_sql" ***
+    @pytest.mark.parametrize(
+        "sql_blank, kwargs_sql_params_test, exception, match, result",
+        [
+            # Ошибка ValueError (KeyError на более низком уровне) возникнет если переданный ключ \
+            # (имя плейсхолдера из **sql_params) не найдет совпадений:
+            (
+                    SQL_SAVE_COMMENT, {'name_placeholder': 'test'},
+                    ValueError, 'Ошибка форматирования SQL-запроса:', _SQL_SAVE_COMMENT_TEST_1
+            ),
+
+            (SQL_SAVE_COMMENT, {'entity_type': 'TABLE', 'schema': 'audit', }, None, None, _SQL_SAVE_COMMENT_TEST_2_3),
+
+            #  Ошибка не возникнет если, все существующие ключи (имена плейсхолдеров из **sql_params) совпадут, \
+            # а избыточные проигнорируются, в данном случае - это "add_new_column_test_name".
+            (
+                    SQL_SAVE_COMMENT,
+                    {'entity_type': 'TABLE', 'schema': 'audit', 'add_new_column_test_name': 'name_column_test', },
+                    None, None, _SQL_SAVE_COMMENT_TEST_2_3
+            ),
+
+        ]
+    )
+    def test__insert_params_in_sql(
+            self, create_mocked_engine, sql_blank, kwargs_sql_params_test, exception, match, result
+    ):
+        test_class = get_instance_test_class(create_mocked_engine)
+        pytest_raises_router(
+            # ---------------------------------- Passing the function under test:
+            test_class._insert_params_in_sql,
+            # ---------------------------------- Other variables
+            create_mocked_engine,
+            exception,
+            match,
+            result,
+            # ---------------------------------- *args (function params):
+            sql_blank,
+            # ---------------------------------- ** kwargs
+            **kwargs_sql_params_test,
+        )
 
 
-# 1
-# assert test_ex._insert_params_in_sql(SQL_SAVE_COMMENT) == _SQL_SAVE_COMMENT_TEST_1
-# Ошибка форматирования sql-запроса: переданный ключ "entity_type" не найден.
-# 2
-# assert test_ex._insert_params_in_sql(
-#     SQL_SAVE_COMMENT,
-#     entity_type='TABLE',
-#     schema='audit'
-# ) == _SQL_SAVE_COMMENT_TEST_2_3
-#
-# # 3, # Ошибка не возникнет если, все существующие ключи (имена плейсхолдеров из **sql_params) совпадут, \
-# # а избыточные проигнорируются, в данном случае - это "add_new_column_test_name".
-# assert test_ex._insert_params_in_sql(
-#     SQL_SAVE_COMMENT, entity_type='TABLE',
-#     schema='audit',
-#     add_new_column_test_name='name_column_test'
-# ) == _SQL_SAVE_COMMENT_TEST_2_3
-#
-# # 4, # Ошибка KeyError возникнет если переданный ключ (имя плейсхолдера из **sql_params) не найдет совпадений:
-# assert test_ex._insert_params_in_sql(
-#     SQL_SAVE_COMMENT,
-#     entity_type='TABLE',
-#     schema='audit',
-# ) == _SQL_SAVE_COMMENT_TEST_2_3
 
 
-def test__get_strparams_only_from_indexes_or_names_for_sql(create_mocked_engine):
+    # _generate_params_list_for_sql todo !
+
+
+
+    # ---------------------------------- *** "_get_sql_and_params_list_only_from_indexes_or_names" ***
+    @pytest.mark.parametrize(
+        "param_column_index_or_name_test, exception, match, result",
+        [
+            (('name_column_test', 1), TypeError, 'Ошибка валидации входных данных!', None),
+            (('', 1), TypeError, 'Ошибка валидации входных данных!', None),
+            # (('name_column_test_1', 'name_column_test_2'), None, None, _SQL_GET_COLUMN_COMMENTS_BY_INDEX),
+            # ((1, 2), None, None, None),
+            (None, TypeError, 'Недопустимый тип данных для аргумента', None),
+            ('', TypeError, 'Недопустимый тип данных для аргумента', None),
+            ([], TypeError, 'Недопустимый тип данных для аргумента', None),
+        ]
+    )
+    def test__get_sql_and_params_list_only_from_indexes_or_names(
+            self, create_mocked_engine, param_column_index_or_name_test, exception, match, result
+    ):
+        test_class = get_instance_test_class(create_mocked_engine)
+        pytest_raises_router(
+            # ---------------------------------- Passing the function under test:
+            test_class._get_sql_and_params_list_only_from_indexes_or_names,
+            # ---------------------------------- Other variables
+            create_mocked_engine,
+            exception,
+            match,
+            result,
+            # ---------------------------------- *args (function params):
+            param_column_index_or_name_test,
+            # ---------------------------------- ** kwargs
+
+        )
+
+
+
+
+
+
+
+
+
+
+
+def test__get_sql_and_params_list_only_from_indexes_or_names(create_mocked_engine):
     test_ex = get_instance_class(create_mocked_engine)
 
     # # 1
