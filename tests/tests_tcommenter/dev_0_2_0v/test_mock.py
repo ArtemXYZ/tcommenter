@@ -115,13 +115,13 @@ class BaseToolsTests:
             :param mocked_engine: Заглушка SQLAlchemy Engine.
             :param result: Результат, который вернет fetchall() после вызова execute.
         """
+
         # Получаем подключение через mocked_engine
         mocked_connection = mocked_engine.connect.return_value.__enter__.return_value
 
         # Настраиваем execute -> fetchall() -> result
         mocked_connection.execute.return_value.fetchall.return_value = result
 
-        return mocked_connection
 
 
 # ----------------------------------------- Фикстуры и Mocks (методами):
@@ -335,7 +335,7 @@ class TestMethodsTcommenterNoExecuteSQL(Fixtures):  # (Fixtures)
 
 
 # ------------------------------------------------ С подключением к БД.
-class TestMethodsTcommenterExecuteSQL:
+class TestMethodsTcommenterExecuteSQL(Fixtures):
     """
         Тестирование методов требующих извлечения информации из бд (через ".execute()").
     """
@@ -347,16 +347,13 @@ class TestMethodsTcommenterExecuteSQL:
     @pytest.mark.parametrize(
         "sql_test, params_kwargs_test, exception, match, result",
         [
-            (SQL_GET_TABLE_COMMENTS, {'name_entity': 'dags_analyzer'}, None, None, [('Alice',)]),
+            (SQL_GET_TABLE_COMMENTS, {'name_entity': 'dags_analyzer'}, None, None, [('Alice',), ('Bob',)]),
 
         ]
     )
     def test__reader(self, mocked_engine, test_class, sql_test, params_kwargs_test, exception, match, result):
-
-
         # Настройка execute, чтобы он возвращал [('Alice',), ('Bob',)]
-        execute_mock(mocked_engine, [('Alice',), ('Bob',)])
-
+        self.tools.execute_mock(mocked_engine, result)
         self.tools.raises_router(
             # ---------------------------------- Passing the function under test:
             test_class._reader,
