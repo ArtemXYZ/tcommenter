@@ -10,13 +10,13 @@
 #     "check_value, check_type, expected_result, expected_exception, match",
 #     [
 #         ('test1', 'test1', str, None, None),
-#         # (create_mocked_engine, dict, dict, ValueError, 'Недопустимый тип данных: "str", для аргумента: "qqqq"'),
+#         # (mocked_engine, dict, dict, ValueError, 'Недопустимый тип данных: "str", для аргумента: "qqqq"'),
 #         # ((4,), 11, 9, TypeError, 'Недопустимый тип данных:'),
 #
 #     ]
 # )
-# def test__validator(create_mocked_engine, check_value, check_type, expected_result, expected_exception, match):
-#     test_ex = get_instance_class(create_mocked_engine)
+# def test__validator(mocked_engine, check_value, check_type, expected_result, expected_exception, match):
+#     test_ex = get_instance_class(mocked_engine)
 #     if expected_exception:
 #
 #         with pytest.raises(
@@ -31,8 +31,8 @@
 #         assert test_ex._validator(check_value, check_type) == expected_result
 
 # -----------
-# def test__stop_sql_injections(create_mocked_engine):
-#     test_ex = get_instance_class(create_mocked_engine)
+# def test__stop_sql_injections(mocked_engine):
+#     test_ex = get_instance_class(mocked_engine)
 #
 #     # 1
 #     with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
@@ -105,18 +105,18 @@
 #
 # Фикстура для тестового экземпляра класса:
 # @pytest.fixture()  # autouse=True
-# def get_test_class(create_mocked_engine):
+# def get_test_class(mocked_engine):
 #     """
 #         Возвращает экземпляр Tcommenter с "мок"-ом.
 #         Используется для всех тестов.
 #     """
 #
-#     return Tcommenter(engine=create_mocked_engine, name_table="dags_analyzer", schema="audit")
+#     return Tcommenter(engine=mocked_engine, name_table="dags_analyzer", schema="audit")
 
 # ====================================================
 # # +
-# def test__validator(self, create_mocked_engine):
-#     test_class = get_instance_test_class(create_mocked_engine)
+# def test__validator(self, mocked_engine):
+#     test_class = get_instance_test_class(mocked_engine)
 #     # 1
 #     assert test_class._validator('test1', str)
 #     # 2
@@ -126,8 +126,8 @@
 #     assert test_class._validator('test3', str, int)
 
 # # +
-# def test__check_all_elements(self, create_mocked_engine):
-#     test_class = get_instance_test_class(create_mocked_engine)
+# def test__check_all_elements(self, mocked_engine):
+#     test_class = get_instance_test_class(mocked_engine)
 #     # 1
 #     with pytest.raises(TypeError, match='Недопустимый тип данных: "str", для аргумента: "test"'):
 #         assert test_class._check_all_elements(check_type=str, args_array='test')
@@ -140,8 +140,8 @@
 #         test_class._check_all_elements(check_type=str, args_array=1)
 
 
-# def test__get_sql_and_params_list_only_from_indexes_or_names(create_mocked_engine):
-#     test_ex = get_instance_test_class(create_mocked_engine)
+# def test__get_sql_and_params_list_only_from_indexes_or_names(mocked_engine):
+#     test_ex = get_instance_test_class(mocked_engine)
 #
 #     # # 1
 #     # with pytest.raises(TypeError,
