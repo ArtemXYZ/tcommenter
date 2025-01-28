@@ -64,14 +64,31 @@ _SQL_GET_TABLE_COMMENTS = """
 
 # """COMMENT ON {entity_type} "{schema}"."{name_entity}" IS :comment"""
 _SQL_SAVE_COMMENT_TEST_1 = """COMMENT ON {entity_type} "{schema}"."dags_analyzer" IS :comment"""
+
 _SQL_SAVE_COMMENT_TEST_2_3 = """COMMENT ON TABLE "audit"."dags_analyzer" IS :comment"""
+
 _SQL_SAVE_COMMENT_TEST_4 = """COMMENT ON TABLE "{schema}"."dags_analyzer" IS :comment"""
+
+_SQL_GET_TABLE_COMMENTS = """
+    SELECT
+        comments.description AS description
+    FROM
+        pg_class AS all_entity
+    INNER JOIN
+        pg_description AS comments
+    ON 
+        all_entity.oid = comments.objoid 
+    AND 
+        comments.objsubid = 0 
+    AND 
+        all_entity.relname = "dags_analyzer"
+"""
 
 
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------- Инструменты:
 # Функция управления логикой вызова pytest.raises():
-def pytest_raises_router(func, create_mocked_engine, exception, match, result, *args, **kwargs):  # , **kwargs
+def pytest_raises_router(func, exception, match, result, *args, **kwargs):  # create_mocked_engine,
     """
         Функция управления логикой вызова pytest.raises().
     """
@@ -85,9 +102,9 @@ def pytest_raises_router(func, create_mocked_engine, exception, match, result, *
     return None
 
 
-# ----------------------------------------- мок бд.
+# ----------------------------------------- Mock db:
 # Создаем "мок" для engine:
-@pytest.fixture
+@pytest.fixture(scope="class")  # scope=class
 def create_mocked_engine():
     engine = MagicMock()  # Заглушка SQLAlchemy Engine
     engine.__class__ = Engine  # Указываем, что это мок класса Engine
@@ -127,7 +144,6 @@ class TestMethodsTcommenterNoExecuteSQL:
             # ---------------------------------- Passing the function under test:
             test_class._validator,
             # ---------------------------------- Other variables
-            create_mocked_engine,
             exception,
             match,
             result,
@@ -153,7 +169,6 @@ class TestMethodsTcommenterNoExecuteSQL:
             # ---------------------------------- Passing the function under test:
             test_class._check_all_elements,
             # Other variables
-            create_mocked_engine,
             exception,
             match,
             result,
@@ -189,7 +204,6 @@ class TestMethodsTcommenterNoExecuteSQL:
             # ---------------------------------- Passing the function under test:
             test_class._stop_sql_injections,
             # ---------------------------------- Other variables
-            create_mocked_engine,
             exception,
             match,
             result,
@@ -228,7 +242,6 @@ class TestMethodsTcommenterNoExecuteSQL:
             # ---------------------------------- Passing the function under test:
             test_class._insert_params_in_sql,
             # ---------------------------------- Other variables
-            create_mocked_engine,
             exception,
             match,
             result,
@@ -257,7 +270,6 @@ class TestMethodsTcommenterNoExecuteSQL:
             # ---------------------------------- Passing the function under test:
             test_class._generate_params_list_for_sql,
             # ---------------------------------- Other variables
-            create_mocked_engine,
             exception,
             match,
             result,
@@ -290,7 +302,6 @@ class TestMethodsTcommenterNoExecuteSQL:
             # ---------------------------------- Passing the function under test:
             test_class._get_sql_and_params_list_only_from_indexes_or_names,
             # ---------------------------------- Other variables
-            create_mocked_engine,
             exception,
             match,
             result,
@@ -300,7 +311,42 @@ class TestMethodsTcommenterNoExecuteSQL:
 
         )
 
+
 # ------------------------------------------------ С подключением к БД.
+class TestMethodsTcommenterExecuteSQL:
+    """
+        Тестирование методов требующих извлечения информации из бд (через ".execute()").
+    """
+
+    # ---------------------------------- *** "_reader" ***
+    @pytest.mark.parametrize(
+        "sql_test, params_kwargs_test, exception, match, result",
+        [
+            (SQL_GET_TABLE_COMMENTS,  {'name_entity': 'dags_analyzer'}, None, None, [('Alice',)]),
+
+        ]
+    )
+    def test__reader(self, create_mocked_engine, sql_test, params_kwargs_test, exception, match, result):
+        test_class = get_instance_test_class(create_mocked_engine)
+
+        create_mocked_engine.fetchall.return_value = result
+        create_mocked_engine.execute.return_value = create_mocked_engine # здесь ошибка надо либо изменить здесь либо изменить фикстуру
+
+        pytest_raises_router(
+            # ---------------------------------- Passing the function under test:
+            test_class._reader,
+            # ---------------------------------- Other variables
+            exception,
+            match,
+            result,
+            # ---------------------------------- *args:
+            sql_test,
+            # ---------------------------------- ** kwargs
+            **params_kwargs_test
+        )
+
+
+
 # def test_reader(create_mocked_engine):
 #     test_instance = get_instance_class(create_mocked_engine)
 #     assert test_instance._reader(SQL_GET_COLUMN_COMMENTS_BY_NAME, columns='columns')
