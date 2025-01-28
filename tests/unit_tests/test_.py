@@ -70,22 +70,6 @@ _SQL_SAVE_COMMENT_TEST_2_3 = """COMMENT ON TABLE "audit"."dags_analyzer" IS :com
 
 _SQL_SAVE_COMMENT_TEST_4 = """COMMENT ON TABLE "{schema}"."dags_analyzer" IS :comment"""
 
-_SQL_GET_TABLE_COMMENTS = """
-    SELECT
-        comments.description AS description
-    FROM
-        pg_class AS all_entity
-    INNER JOIN
-        pg_description AS comments
-    ON 
-        all_entity.oid = comments.objoid 
-    AND 
-        comments.objsubid = 0 
-    AND 
-        all_entity.relname = "dags_analyzer"
-"""
-
-
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------- Инструменты (методами):
 class BaseToolsTests:
