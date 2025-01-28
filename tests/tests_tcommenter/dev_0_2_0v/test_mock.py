@@ -87,46 +87,12 @@ _SQL_GET_TABLE_COMMENTS = """
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-# ----------------------------------------- Инструменты (функциями):
-# Функция управления логикой вызова pytest.raises():
-def pytest_raises_router(func, exception, match, result, *args, **kwargs):  # mocked_engine,
-    """
-        Функция управления логикой вызова pytest.raises().
-    """
-
-    if exception:
-        with pytest.raises(exception, match=match):
-            func(*args, **kwargs)  # , **kwargs
-    else:
-        assert func(*args, **kwargs) == result  #
-
-    return None
-
-
-# Функция для настройки поведения execute -
-def execute_mock(mocked_engine, result):
-    """
-        Настраивает результат метода execute для mocked_engine.
-
-        :param mocked_engine: Заглушка SQLAlchemy Engine.
-        :param result: Результат, который вернет fetchall() после вызова execute.
-    """
-
-    # Получаем подключение через mocked_engine
-    mocked_connection = mocked_engine.connect.return_value.__enter__.return_value
-
-    # Настраиваем execute -> fetchall() -> result
-    mocked_connection.execute.return_value.fetchall.return_value = result
-    return mocked_connection
-
-
 # ----------------------------------------- Инструменты (методами):
 class BaseToolsTests:
     """
         Набор методов для сокращения кода тестовых функций и упрощения управления тестовыми данными.
     """
 
-    # Функция управления логикой вызова pytest.raises():
     @staticmethod
     def raises_router(func, exception, match, result, *args, **kwargs):  # mocked_engine,
         """
@@ -158,18 +124,8 @@ class BaseToolsTests:
         return mocked_connection
 
 
-# ----------------------------------------- Фикстуры и Mocks (функциями):
-# Создаем mock для engine: +
-@pytest.fixture(scope="class")  # scope=class
-def mocked_engine():
-    """
-        Фикстура для создания заглушки Engine SQLAlchemy.
-    """
-    return MagicMock(spec=Engine)
-
-
 # ----------------------------------------- Фикстуры и Mocks (методами):
-class TestWithMocks:
+class Fixtures:
     """
         Класс, содержащий фикстуры и заглушки для тестов.
     """
@@ -181,16 +137,18 @@ class TestWithMocks:
         """
         return MagicMock(spec=Engine)
 
+    @pytest.fixture(scope="class")
+    def test_class(self, mocked_engine):
+        """
+            Фикстура для получения экземпляра Tcommenter.
+        """
 
-# ----------------------------------------- Тестовый экземпляр класса:
-def get_instance_test_class(mocked_engine) -> Tcommenter:
-    """
-        Возвращает экземпляр Tcommenter. Используется для всех тестов.
-    """
-    return Tcommenter(engine=mocked_engine, name_table="dags_analyzer", schema="audit")
+        return Tcommenter(engine=mocked_engine, name_table="dags_analyzer", schema="audit")
 
 
-class TestMethodsTcommenterNoExecuteSQL:  # (BaseToolsTests)
+# =================================================== Tests:
+# @pytest.mark.usefixtures("mocked_engine",  "test_class")
+class TestMethodsTcommenterNoExecuteSQL(Fixtures):  # (Fixtures)
     """
         Тестирование методов не требующих извлечения информации из бд (нет .execute()).
     """
@@ -198,8 +156,7 @@ class TestMethodsTcommenterNoExecuteSQL:  # (BaseToolsTests)
     # Перегружаем класс для удобства:
     tools = BaseToolsTests
 
-    def test_get_instance_class(self, mocked_engine):
-        test_class = get_instance_test_class(mocked_engine)
+    def test_get_instance_class(self, test_class):
         assert isinstance(test_class, Tcommenter)
 
     # ---------------------------------- *** "_validator" ***
@@ -211,9 +168,7 @@ class TestMethodsTcommenterNoExecuteSQL:  # (BaseToolsTests)
             ('test3', (str, int,), None, None, 'test3'),
         ]
     )
-    def test__validator(self, mocked_engine, value_test, check_type_test, exception, match, result):
-        test_class = get_instance_test_class(mocked_engine)
-
+    def test__validator(self, test_class, value_test, check_type_test, exception, match, result):  # mocked_engine,
         self.tools.raises_router(
             # ---------------------------------- Passing the function under test:
             test_class._validator,
@@ -236,9 +191,8 @@ class TestMethodsTcommenterNoExecuteSQL:  # (BaseToolsTests)
         ]
     )
     def test__check_all_elements(
-            self, mocked_engine, check_type_test, value_array_test, exception, match, result
+            self, test_class, check_type_test, value_array_test, exception, match, result
     ):
-        test_class = get_instance_test_class(mocked_engine)
         self.tools.raises_router(
             # ---------------------------------- Passing the function under test:
             test_class._check_all_elements,
@@ -272,8 +226,7 @@ class TestMethodsTcommenterNoExecuteSQL:  # (BaseToolsTests)
             ('sdfdksdsd---*D\\', ValueError, 'Ошибка проверки строки:', None),
         ]
     )
-    def test__stop_sql_injections(self, mocked_engine, sql_param_string, exception, match, result):
-        test_class = get_instance_test_class(mocked_engine)
+    def test__stop_sql_injections(self, test_class, sql_param_string, exception, match, result):
         self.tools.raises_router(
             # ---------------------------------- Passing the function under test:
             test_class._stop_sql_injections,
@@ -309,9 +262,8 @@ class TestMethodsTcommenterNoExecuteSQL:  # (BaseToolsTests)
         ]
     )
     def test__insert_params_in_sql(
-            self, mocked_engine, sql_blank, kwargs_sql_params_test, exception, match, result
+            self, test_class, sql_blank, kwargs_sql_params_test, exception, match, result
     ):
-        test_class = get_instance_test_class(mocked_engine)
         self.tools.raises_router(
             # ---------------------------------- Passing the function under test:
             test_class._insert_params_in_sql,
@@ -337,9 +289,8 @@ class TestMethodsTcommenterNoExecuteSQL:  # (BaseToolsTests)
         ]
     )
     def test__generate_params_list_for_sql(
-            self, mocked_engine, params_test, exception, match, result
+            self, test_class, params_test, exception, match, result
     ):
-        test_class = get_instance_test_class(mocked_engine)
         self.tools.raises_router(
             # ---------------------------------- Passing the function under test:
             test_class._generate_params_list_for_sql,
@@ -350,7 +301,6 @@ class TestMethodsTcommenterNoExecuteSQL:  # (BaseToolsTests)
             # ---------------------------------- *args (function params):
             params_test,
             # ---------------------------------- ** kwargs
-
         )
 
     # ---------------------------------- *** "_get_sql_and_params_list_only_from_indexes_or_names" ***
@@ -369,9 +319,8 @@ class TestMethodsTcommenterNoExecuteSQL:  # (BaseToolsTests)
         ]
     )
     def test__get_sql_and_params_list_only_from_indexes_or_names(
-            self, mocked_engine, param_column_index_or_name_test, exception, match, result
+            self, test_class, param_column_index_or_name_test, exception, match, result
     ):
-        test_class = get_instance_test_class(mocked_engine)
         self.tools.raises_router(
             # ---------------------------------- Passing the function under test:
             test_class._get_sql_and_params_list_only_from_indexes_or_names,
@@ -382,7 +331,6 @@ class TestMethodsTcommenterNoExecuteSQL:  # (BaseToolsTests)
             # ---------------------------------- *args (function params):
             param_column_index_or_name_test,
             # ---------------------------------- ** kwargs
-
         )
 
 
@@ -403,8 +351,8 @@ class TestMethodsTcommenterExecuteSQL:
 
         ]
     )
-    def test__reader(self, mocked_engine, sql_test, params_kwargs_test, exception, match, result):
-        test_class = get_instance_test_class(mocked_engine)
+    def test__reader(self, mocked_engine, test_class, sql_test, params_kwargs_test, exception, match, result):
+
 
         # Настройка execute, чтобы он возвращал [('Alice',), ('Bob',)]
         execute_mock(mocked_engine, [('Alice',), ('Bob',)])
