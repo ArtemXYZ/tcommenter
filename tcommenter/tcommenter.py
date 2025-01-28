@@ -364,6 +364,7 @@ class Tcommenter:
                                         for param in param_column_index_or_name]}'
                                     f'Должны быть либо только str (имена колонок), либо только int (индексы колонок).'
                                     )
+        # todo нет else блока, на пустоту нет никаких действий.
 
     def _reader(self, sql: str | TextClause, **params: str | int | list) -> list[tuple]:
         """

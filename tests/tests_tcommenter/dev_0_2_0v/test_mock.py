@@ -68,35 +68,10 @@ _SQL_SAVE_COMMENT_TEST_2_3 = """COMMENT ON TABLE "audit"."dags_analyzer" IS :com
 _SQL_SAVE_COMMENT_TEST_4 = """COMMENT ON TABLE "{schema}"."dags_analyzer" IS :comment"""
 
 
-_SQL_GET_COLUMN_COMMENTS_BY_INDEX = """
-    SELECT 
-        cols.attname AS column_name,       
-        comments.description AS description         
-    FROM 
-        pg_class AS all_entity
-    INNER JOIN 
-        pg_description AS comments              
-    ON 
-        all_entity.oid = comments.objoid
-    AND
-        comments.objsubid > 0
-    AND
-        all_entity.relname = "dags_analyzer"
-    INNER JOIN 
-        pg_attribute AS cols                  
-    ON
-        cols.attnum = comments.objsubid 
-    AND
-        cols.attrelid = all_entity.oid      
-    WHERE 
-         comments.objsubid = 'name_column_test_1, name_column_test_2'
-"""
-
-
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------- Инструменты:
 # Функция управления логикой вызова pytest.raises():
-def pytest_raises_router(func, create_mocked_engine, exception, match, result, *args, **kwargs):   # , **kwargs
+def pytest_raises_router(func, create_mocked_engine, exception, match, result, *args, **kwargs):  # , **kwargs
     """
         Функция управления логикой вызова pytest.raises().
     """
@@ -105,7 +80,7 @@ def pytest_raises_router(func, create_mocked_engine, exception, match, result, *
         with pytest.raises(exception, match=match):
             func(*args, **kwargs)  # , **kwargs
     else:
-        assert func(*args, **kwargs) == result   #
+        assert func(*args, **kwargs) == result  #
 
     return None
 
@@ -162,17 +137,16 @@ class TestMethodsTcommenterNoExecuteSQL:
 
     # ---------------------------------- *** "_check_all_elements" ***
     @pytest.mark.parametrize(
-        "check_type_test, value_dict_test, exception, match, result",
-        [
-            (str, {'args_array': 'test'}, TypeError, 'Недопустимый тип данных: "str", для аргумента: "test"', None),
-            (str, {'args_array': 1}, TypeError, 'Недопустимый тип данных: "int", для аргумента: "1".', None),
-            (int, {'args_array': 1}, None, None, True),
-            (str, {'args_array': ['test', 'test']}, None, None, True),
-            (str, {'args_array': {'test': 'test'}}, None, None, True),
+        "check_type_test, value_array_test, exception, match, result",
+        [  # dict, list, tuple,
+            (str, 'name_column_1', TypeError, 'Недопустимый тип данных:', None),
+            (str, ['test', 'test', 'test', 2], None, None, False),
+            (int, ['test', 'test', 'test', '2'], None, None, False),
+            (int, ('test', 1), None, None, False),
         ]
     )
     def test__check_all_elements(
-            self, create_mocked_engine, check_type_test, value_dict_test, exception, match, result
+            self, create_mocked_engine, check_type_test, value_array_test, exception, match, result
     ):
         test_class = get_instance_test_class(create_mocked_engine)
         pytest_raises_router(
@@ -184,7 +158,7 @@ class TestMethodsTcommenterNoExecuteSQL:
             match,
             result,
             # ---------------------------------- *args (function params):
-            check_type_test, value_dict_test,
+            check_type_test, value_array_test,
         )
 
     # ---------------------------------- *** "_stop_sql_injections" ***
@@ -222,7 +196,6 @@ class TestMethodsTcommenterNoExecuteSQL:
             # ---------------------------------- *args (function params):
             sql_param_string,
         )
-
 
     # ---------------------------------- *** "_insert_params_in_sql" ***
     @pytest.mark.parametrize(
@@ -265,12 +238,34 @@ class TestMethodsTcommenterNoExecuteSQL:
             **kwargs_sql_params_test,
         )
 
+    # ---------------------------------- *** "_generate_params_list_for_sql" ***
+    @pytest.mark.parametrize(
+        "params_test, exception, match, result",
+        [
+            (('name_column_test', 1), None, None, ['name_column_test', 1]),
+            ('name_column_test', TypeError, 'Недопустимый тип данных', None),
+            (('', 1), None, None, ['', 1]),
+            ({'name_column_test': 1}, TypeError, 'Недопустимый тип данных', None),
+            (1, TypeError, 'Недопустимый тип данных', None),
+        ]
+    )
+    def test__generate_params_list_for_sql(
+            self, create_mocked_engine, params_test, exception, match, result
+    ):
+        test_class = get_instance_test_class(create_mocked_engine)
+        pytest_raises_router(
+            # ---------------------------------- Passing the function under test:
+            test_class._generate_params_list_for_sql,
+            # ---------------------------------- Other variables
+            create_mocked_engine,
+            exception,
+            match,
+            result,
+            # ---------------------------------- *args (function params):
+            params_test,
+            # ---------------------------------- ** kwargs
 
-
-
-    # _generate_params_list_for_sql todo !
-
-
+        )
 
     # ---------------------------------- *** "_get_sql_and_params_list_only_from_indexes_or_names" ***
     @pytest.mark.parametrize(
@@ -278,11 +273,13 @@ class TestMethodsTcommenterNoExecuteSQL:
         [
             (('name_column_test', 1), TypeError, 'Ошибка валидации входных данных!', None),
             (('', 1), TypeError, 'Ошибка валидации входных данных!', None),
-            # (('name_column_test_1', 'name_column_test_2'), None, None, _SQL_GET_COLUMN_COMMENTS_BY_INDEX),
-            # ((1, 2), None, None, None),
-            (None, TypeError, 'Недопустимый тип данных для аргумента', None),
-            ('', TypeError, 'Недопустимый тип данных для аргумента', None),
-            ([], TypeError, 'Недопустимый тип данных для аргумента', None),
+            (('name_column_test_1', 'name_column_test_2'),
+             None, None, (SQL_GET_COLUMN_COMMENTS_BY_NAME, ['name_column_test_1', 'name_column_test_2'])),
+            ((1, 2), None, None, (SQL_GET_COLUMN_COMMENTS_BY_INDEX, [1, 2])),
+            (None, None, None, None),  # Нет else блока для обработки пустых значений.
+            ('', None, None, None),  # Нет else блока для обработки пустых значений (в данном случае для пустой строки).
+            ('test', TypeError, 'Недопустимый тип данных', None),
+            (['test'], TypeError, 'Недопустимый тип данных', None),
         ]
     )
     def test__get_sql_and_params_list_only_from_indexes_or_names(
@@ -303,191 +300,10 @@ class TestMethodsTcommenterNoExecuteSQL:
 
         )
 
-
-
-
-
-
-
-
-
-
-
-def test__get_sql_and_params_list_only_from_indexes_or_names(create_mocked_engine):
-    test_ex = get_instance_class(create_mocked_engine)
-
-    # # 1
-    # with pytest.raises(TypeError,
-    #                    match="Переданные аргументы не соответствуют единому типу данных, должны быть либо только str (имена колонок), либо только int (индексы колонок)."
-    #
-    #                    ):
-    #     assert test_ex._get_strparams_only_from_indexes_or_names_for_sql(('erwer', 1))
-
-    # 2
-    with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:"):
-        assert test_ex._get_sql_and_params_list_only_from_indexes_or_names('')
-
-    # 3
-    assert test_ex._get_sql_and_params_list_only_from_indexes_or_names(('erwer', 'wewe'))
-
-    # 4
-    assert test_ex._get_sql_and_params_list_only_from_indexes_or_names((1, 2))
-
-    # 5
-    with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:"):
-        assert test_ex._get_sql_and_params_list_only_from_indexes_or_names(None)
-
-    #  6
-    with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:"):
-        assert test_ex._get_sql_and_params_list_only_from_indexes_or_names([])
-
-
 # ------------------------------------------------ С подключением к БД.
-def test_reader(create_mocked_engine):
-    test_instance = get_instance_class(create_mocked_engine)
-    assert test_instance._reader(SQL_GET_COLUMN_COMMENTS_BY_NAME, columns='columns')
+# def test_reader(create_mocked_engine):
+#     test_instance = get_instance_class(create_mocked_engine)
+#     assert test_instance._reader(SQL_GET_COLUMN_COMMENTS_BY_NAME, columns='columns')
 
 # row_sql_recorder
 # recorder
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-# @pytest.fixture
-# def mock_session():
-#     mock = MagicMock()
-#     return mock
-
-# ------------------------------------- Olds
-# @pytest.mark.parametrize(
-#     # Передаваемые значения аргументов.
-#     "check_value, check_type, expected_result, expected_exception, match",
-#     [
-#         ('test1', 'test1', str, None, None),
-#         # (create_mocked_engine, dict, dict, ValueError, 'Недопустимый тип данных: "str", для аргумента: "qqqq"'),
-#         # ((4,), 11, 9, TypeError, 'Недопустимый тип данных:'),
-#
-#     ]
-# )
-# def test__validator(create_mocked_engine, check_value, check_type, expected_result, expected_exception, match):
-#     test_ex = get_instance_class(create_mocked_engine)
-#     if expected_exception:
-#
-#         with pytest.raises(
-#                            check_value=check_value,
-#                            check_type=check_type,
-#                            expected_result=expected_result,
-#                            expected_exception=expected_exception,
-#                            match=match
-#                            ):
-#             test_ex._validator(check_value, check_type)
-#     else:
-#         assert test_ex._validator(check_value, check_type) == expected_result
-
-# -----------
-# def test__stop_sql_injections(create_mocked_engine):
-#     test_ex = get_instance_class(create_mocked_engine)
-#
-#     # 1
-#     with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
-#         assert test_ex._stop_sql_injections('')  # Изменить ли поведение (пропускать пустой символ)?
-#
-#     # 2
-#     with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
-#         assert test_ex._stop_sql_injections(' - ')
-#
-#     # 3
-#     assert test_ex._stop_sql_injections('-')
-#
-#     # 4
-#     with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
-#         assert test_ex._stop_sql_injections('--')
-#
-#     # 5
-#     with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
-#         assert test_ex._stop_sql_injections('*')
-#
-#     # 6
-#     with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
-#         assert test_ex._stop_sql_injections(';')
-#
-#     # 7
-#     with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
-#         assert test_ex._stop_sql_injections('DROP')
-#
-#     # 8
-#     with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
-#         assert test_ex._stop_sql_injections('CREATE')
-#
-#     # 9
-#     with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
-#         assert test_ex._stop_sql_injections('ALTER')
-#
-#     # 10
-#     with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
-#         assert test_ex._stop_sql_injections('INSERT')
-#
-#     # 11
-#     with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
-#         assert test_ex._stop_sql_injections('UPDATE')
-#
-#     # 12
-#     with pytest.raises(ValueError, match="Ошибка! Попытка внедрения sql-инъекции."):
-#         assert test_ex._stop_sql_injections('DELETE')
-#
-#     # 13
-#     assert test_ex._stop_sql_injections('DELET')
-#
-#     # 14
-#     with pytest.raises(TypeError, match="Недопустимый тип данных для аргумента:"):
-#         assert test_ex._stop_sql_injections(1)
-#
-#     # 15
-#     with pytest.raises(ValueError, match="Ошибка! Недопустимый символ в проверяемой строке."):
-#         assert test_ex._stop_sql_injections('sdfdksdsd---*D\\')
-
-
-# # Класс для тестов:
-# class BaseMockTcommenter:
-#     """
-#         Инициализация базового класса с "мок"-ом подключения.
-#     """
-#
-#     instance_test_class = get_test_class()
-
-
-#
-# Фикстура для тестового экземпляра класса:
-# @pytest.fixture()  # autouse=True
-# def get_test_class(create_mocked_engine):
-#     """
-#         Возвращает экземпляр Tcommenter с "мок"-ом.
-#         Используется для всех тестов.
-#     """
-#
-#     return Tcommenter(engine=create_mocked_engine, name_table="dags_analyzer", schema="audit")
-
-# ====================================================
-# # +
-# def test__validator(self, create_mocked_engine):
-#     test_class = get_instance_test_class(create_mocked_engine)
-#     # 1
-#     assert test_class._validator('test1', str)
-#     # 2
-#     with pytest.raises(TypeError, match='Недопустимый тип данных: "str", для аргумента: "test2"'):
-#         test_class._validator('test2', dict, int)
-#     # 3
-#     assert test_class._validator('test3', str, int)
-
-# # +
-# def test__check_all_elements(self, create_mocked_engine):
-#     test_class = get_instance_test_class(create_mocked_engine)
-#     # 1
-#     with pytest.raises(TypeError, match='Недопустимый тип данных: "str", для аргумента: "test"'):
-#         assert test_class._check_all_elements(check_type=str, args_array='test')
-#     # 2
-#     assert test_class._check_all_elements(check_type=str, args_array=['test', 'test'])
-#     # 3
-#     assert test_class._check_all_elements(check_type=str, args_array={'test': 'test'})
-#     # 4
-#     with pytest.raises(TypeError, match='Недопустимый тип данных: "int", для аргумента: "1".'):
-#         test_class._check_all_elements(check_type=str, args_array=1)
