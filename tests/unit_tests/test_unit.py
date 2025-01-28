@@ -108,6 +108,15 @@ class BaseToolsTests:
 
 
 
+    @staticmethod
+    def gg(mocked_engine):
+        """
+            Проверка, что execute вызван с корректным SQL.
+        """
+        mocked_connection = mocked_engine.connect.return_value.__enter__.return_value
+        mocked_connection.execute.assert_called_once_with(sql_test, **params_kwargs_test)
+
+
 # ----------------------------------------- Фикстуры и Mocks (методами):
 class Fixtures:
     """
@@ -130,7 +139,7 @@ class Fixtures:
         return Tcommenter(engine=mocked_engine, name_table="dags_analyzer", schema="audit")
 
 
-# =================================================== Tests:
+# ======================================================= Tests ========================================================
 # @pytest.mark.usefixtures("mocked_engine",  "test_class")
 class TestMethodsTcommenterNoExecuteSQL(Fixtures):  # (Fixtures)
     """
@@ -331,12 +340,12 @@ class TestMethodsTcommenterExecuteSQL(Fixtures):
     @pytest.mark.parametrize(
         "sql_test, params_kwargs_test, exception, match, result",
         [
-            (SQL_GET_TABLE_COMMENTS, {'name_entity': 'dags_analyzer'}, None, None, [('Alice',), ('Bob',)]),
-
+            (SQL_GET_TABLE_COMMENTS, {'name_entity': 'dags_analyzer'}, None, None, [('Table comment',)]),
+            (SQL_GET_TABLE_COMMENTS, {'name_': 'dags_analyzer'}, None, None, [('Table comment',)]),
         ]
     )
     def test__reader(self, mocked_engine, test_class, sql_test, params_kwargs_test, exception, match, result):
-        # Настройка execute, чтобы он возвращал [('Alice',), ('Bob',)]
+        # Настройка execute, чтобы он возвращал проверяемый result:
         self.tools.execute_mock(mocked_engine, result)
         self.tools.raises_router(
             # ---------------------------------- Passing the function under test:
