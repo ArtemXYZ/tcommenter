@@ -1,6 +1,12 @@
 > # <p align="center">Tcommenter</p>
 
-## Description
+[![Contributors][contributors-shield]][contributors-url]
+[![Forks][forks-shield]][forks-url]
+[![Stargazers][stars-shield]][stars-url]
+[![Issues][issues-shield]][issues-url]
+[![MIT License][license-shield]][license-url]
+
+## About the project
 
     The "Tcommenter" library is designed to create comments on tables (and other entities)
     in a database (in the current version of the library, only for PostgreSQL).
@@ -21,7 +27,7 @@ pip install tcommenter
 ```
 
 [//]: # (## <p align="center"> Примеры использования</p> )
-## Usage examples
+## Usage
 
 [//]: # (- Создание экземпляра Tcommenter)
 #### <p align="center">Creating an instance Tcommenter</p>
@@ -157,7 +163,12 @@ commenter.save_comments(comments)
 ````
 
 
+<!-- LICENSE -->
+## License
 
+Distributed under the MIT License. See `LICENSE.txt` for more information.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 
@@ -198,3 +209,18 @@ commenter.save_comments(comments)
 [//]: # (    <img src="images/HR_BOT.png" style="width: 500px; height: 300px;" alt="Hr Bot">)
 
 [//]: # (</div>)
+
+
+<!-- License | Лицензия -->
+[license-shield]: https://img.shields.io/github/license/ArtemXYZ/mv_pars.svg?style=for-the-badge
+[license-url]: https://github.com/ArtemXYZ/mv_pars/blob/master/LICENSE.txt
+
+<!-- Logo | Лого  + [product-screenshot]: -->
+[main_logo]: docs/images_project/logo.png
+[logo_mini]: docs/images_project/lg.png
+
+<!-- Logo + page home lib | Ссылки на библиотеки, используемые в разработке -->
+[Next.js]: https://img.shields.io/badge/next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white
+[Next-url]: https://nextjs.org/
+[React.js]: https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB
+[React-url]: https://reactjs.org/
