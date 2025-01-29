@@ -1,10 +1,18 @@
 > # <p align="center">Tcommenter</p>
 
-
 ## Description
 
-    ## Tcommenter - это библиотека для работы с комментариями в базе данных, предназначенная для упрощения извлечения и 
-    записи метаданных.
+    The "Tcommenter" library is designed to create comments on tables (and other entities)
+    in a database (in the current version of the library, only for PostgreSQL).
+
+    Initially, the library was conceived as a tool for working with metadata in DAGs (DAG - Directed Acyclic Graph,
+    https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/dags.html) "Apache Airflow". The need to
+    rewrite the metadata of database objects arises when working with pandas, namely with "pandas.Data Frame.to_sql"
+    (https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.to_sql.html). If the method has a
+    the if_exists=replace flag, drops the table before inserting new values. In this case, all metadata is
+    they are deleted along with the table. This library was created to solve this kind of problem, as well as to
+    to ensure the convenience of working without using SQL directly.
+
 
 ## Installation
 You can install the library using pip:

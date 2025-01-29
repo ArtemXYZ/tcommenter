@@ -2,16 +2,16 @@
 # This project is licensed under the MIT License - see the LICENSE file for details.
 
 """
-    Главный модуль библиотеки "Tcommenter" предназначенной для создания комментариев к таблицам (и другим сущностям)
-    в базе данных (в текущей версии библиотеки, только для PostgreSQL).
+    The main module of the "Tcommenter" library is designed to create comments on tables (and other entities)
+    in a database (in the current version of the library, only for PostgreSQL).
 
-    Изначально, библиотека задумывалось, как инструмент работы с метаданными в DAGs (DAG - Directed Acyclic Graph,
-    https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/dags.html) "Apache Airflow". Потребность в
-    перезаписи метаданных объектов баз данных возникает при работе с pandas, а именно с "pandas.DataFrame.to_sql"
-    (https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.to_sql.html). Если у метода выставлен
-    флаг if_exists=replace, происходит drop the table before inserting new values. В таком случае все метаданные
-    удаляются вместе с таблицей. Для решения такого рода проблемы была создана данная библиотека, а также для того
-    чтобы обеспечить удобство работы без использования напрямую SQL.
+    Initially, the library was conceived as a tool for working with metadata in DAGs (DAG - Directed Acyclic Graph,
+    https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/dags.html) "Apache Airflow". The need to
+    rewrite the metadata of database objects arises when working with pandas, namely with "pandas.Data Frame.to_sql"
+    (https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.to_sql.html). If the method has a
+    the if_exists=replace flag, drops the table before inserting new values. In this case, all metadata is
+    they are deleted along with the table. This library was created to solve this kind of problem, as well as to
+    to ensure the convenience of working without using SQL directly.
 """
 
 # ----------------------------------------------------------------------------------------------------------------------
