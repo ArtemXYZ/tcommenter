@@ -4,8 +4,14 @@
 """
     Главный модуль библиотеки "Tcommenter" предназначенной для создания комментариев к таблицам (и другим сущностям)
     в базе данных (в текущей версии библиотеки, только для PostgreSQL).
-    Основная область применения "Tcommenter" - "Apache Airflow" для удобства работы с метаданными в DAGs
-    (DAG - Directed Acyclic Graph, https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/dags.html)
+
+    Изначально, библиотека задумывалось, как инструмент работы с метаданными в DAGs (DAG - Directed Acyclic Graph,
+    https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/dags.html) "Apache Airflow". Потребность в
+    перезаписи метаданных объектов баз данных возникает при работе с pandas, а именно с "pandas.DataFrame.to_sql"
+    (https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.to_sql.html). Если у метода выставлен
+    флаг if_exists=replace, происходит drop the table before inserting new values. В таком случае все метаданные
+    удаляются вместе с таблицей. Для решения такого рода проблемы была создана данная библиотека, а также для того
+    чтобы обеспечить удобство работы без использования напрямую SQL.
 """
 
 # ----------------------------------------------------------------------------------------------------------------------

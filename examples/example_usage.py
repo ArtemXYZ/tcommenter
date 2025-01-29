@@ -52,7 +52,7 @@ print(comments)  # -> '{'table': 'pass', 'columns': {'dag_id': 'pass', 'descript
 
 # ------------------------------- Metadata recording methods:
 # Writing a comment on an entity:
-commenter.set_table_comment('Таблица содержит выгрузку данных из Airflow.')
+commenter.set_table_comment('The table contains data unloading from Airflow.')
 comments = commenter.get_table_comments()
 print(comments)  # -> 'The table contains data unloading from Airflow.'
 
