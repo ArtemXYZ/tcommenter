@@ -5,7 +5,7 @@
 # import unittest
 import pytest
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from sqlalchemy import text
 from sqlalchemy.engine.base import Engine
 from tcommenter.tcommenter import Tcommenter

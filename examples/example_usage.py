@@ -1,15 +1,32 @@
 """
     Examples of Tcommenter usage.
+
+    Note:
+        Each example should be run independently.
+        Be sure to comment out other examples before running the current one.
+        Additionally, replace the mock engine with a real SQLAlchemy engine.
+        If this is not done, all example calls will be executed in sequence
 """
+
+from unittest.mock import MagicMock
+from sqlalchemy.engine.base import Engine
 
 from tcommenter import Tcommenter
 
-# Import Engine SQLAlchemy for db:
-from tests.connnections.connection import ENGINE_REAL_DB
+# You need to set up your own SQLAlchemy engine here.
+# For example, you can import your engine like this:
+# from .connection import engine_real_db
+
+# Create a mock engine for demonstration purposes only.
+# This simulates a SQLAlchemy Engine object without connecting to a real database.
+engine = MagicMock(spec=Engine)
+
+# Uncomment the following line to use your real database engine.
+# engine = engine_real_db  # Replace this with your actual engine for real use.
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Creating an instance of a class to work with a specific entity in the database:
-commenter = Tcommenter(engine=ENGINE_REAL_DB, name_table='dags_analyzer', schema='audit')
+commenter = Tcommenter(engine=engine, name_table='dags_analyzer', schema='audit')
 
 # ------------------------------- Metadata extraction methods:
 
