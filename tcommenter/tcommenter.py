@@ -34,7 +34,7 @@ class Tcommenter:
         (DAG - Directed Acyclic Graph, https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/dags.html).
     """
 
-    PARAMS_SQL = {
+    _PARAMS_SQL = {
         'TABLE': 'TABLE',
         'VIEW': 'VIEW',
         'MATERIALIZED': 'MATERIALIZED VIEW',
@@ -513,11 +513,11 @@ class Tcommenter:
             if name_column:
 
                 comment_value = self._validator(comment_value, str)
-
+                # todo: возможно нужно перенести по умолчанию в _insert_params_in_sql
                 mutable_sql_variant = self._insert_params_in_sql(
                     SQL_SAVE_COMMENT_COLUMN,
-                    entity_type=self.PARAMS_SQL.get(type_comment),
-                    schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации: # todo: возможно нужно перенести по умолчанию в _insert_params_in_sql
+                    entity_type=self._PARAMS_SQL.get(type_comment),
+                    schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации:
                     name_column=self._stop_sql_injections(name_column),
                 )
 
@@ -534,10 +534,11 @@ class Tcommenter:
 
         # Если комментарий не для колонки, значит для любой другой сущности (таблица, представление, ...)
         else:
+            # todo: возможно нужно перенести по умолчанию в _insert_params_in_sql
             mutable_sql_variant = self._insert_params_in_sql(
                 SQL_SAVE_COMMENT,
-                entity_type=self.PARAMS_SQL.get(type_comment),
-                schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации: # todo: возможно нужно перенести по умолчанию в _insert_params_in_sql
+                entity_type=self._PARAMS_SQL.get(type_comment),
+                schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации:
             )
 
             self._recorder(mutable_sql_variant, comment=comment_value)
@@ -744,7 +745,7 @@ class Tcommenter:
             ***
 
             :param  comments_columns: kwargs (
-                ключ: имя или индекс колонки,
+                ключ: имя колонки,
                 значение: комментарии, который необходимо записать к колонке в базе данных
                 ).
             :return: None, в случае успешной записи в базу данных.

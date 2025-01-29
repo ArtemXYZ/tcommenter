@@ -1,8 +1,8 @@
 """
-    Примеры использования Tcommenter.
+    Модуль тестов с реальной базой данных.
 """
 
-from tcommenter import Tcommenter
+from tcommenter.tcommenter import Tcommenter
 
 # Import Engine SQLAlchemy for db:
 from tests.connnections.connection import ENGINE_REAL_DB
@@ -33,6 +33,7 @@ print(comments)  # -> {'dag_id': 'pass', 'description': 'pass'}
 comments = commenter.get_all_comments()
 print(comments)  # -> '{'table': 'pass', 'columns': {'dag_id': 'pass', 'description': 'pass', pass}}'
 
+
 # ------------------------------- Методы записи метаданных:
 # Запись комментария к сущности:
 commenter.set_table_comment('Таблица содержит выгрузку данных из Airflow.')
@@ -48,10 +49,13 @@ commenter.set_column_comment(description='description_test', dag_id='dag_id_test
 comments = commenter.get_column_comments('description', 'dag_id')
 print(comments)  # -> {'dag_id': 'dag_id_test', 'description': 'description_test'}
 
+
+
 # ------------------------------- Сервисные методы:
 # Метод определения типа сущности ('table', 'view', 'mview', ...)
 type_entity = commenter.get_type_entity()
 print(type_entity)  # -> 'table'
+
 
 # ------------------------------- Примеры перегрузки метаданных:
 
@@ -84,3 +88,15 @@ commenter.save_comments(comments)
 comments = commenter.get_all_comments()
 print(comments)  # -> {'table': 'pass', 'columns': {pass}}
 commenter.save_comments(comments)
+
+
+# ----------------------------------
+# Список всех методов:
+# for r in Tcommenter.__dict__:
+#     print(r)
+#
+
+
+
+
+

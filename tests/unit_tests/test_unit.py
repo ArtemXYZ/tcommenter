@@ -1,34 +1,5 @@
 """
-    Модуль тестирования проекта.
-
-    Список методов и аргументов:
-        PARAMS_SQL
-        SQL_SAVE_COMMENT
-        SQL_SAVE_COMMENT_COLUMN
-        SQL_GET_TABLE_COMMENTS
-        SQL_GET_ALL_COLUMN_COMMENTS
-        SQL_GET_COLUMN_COMMENTS_BY_INDEX
-        SQL_GET_COLUMN_COMMENTS_BY_NAME
-        SQL_CHECK_TYPE_ENTITY
-        __init__
-        _validator
-        _check_all_elements
-        _sql_formatter
-        _mutation_sql_by_logic
-        _create_comment
-        _set_column_comment
-        recorder
-        reader
-        row_sql_recorder
-        get_type_entity
-        set_table_comment
-        set_view_comment
-        set_materialized_view_comment
-        set_column_comment
-        get_table_comments
-        get_column_comments
-        get_all_comments
-        save_comments
+    Модуль юнит тестов.
 """
 
 # import unittest
@@ -39,12 +10,9 @@ from sqlalchemy import text
 from sqlalchemy.engine.base import Engine
 from tcommenter.tcommenter import Tcommenter
 from tcommenter.sql.postgre_sql import *
+from tests.utilities.utilities import *
 
-# from tests.connnections.connection import ENGINE_MART_SV
-
-# todo: get_instance_test_class - сделать фикстурой и убрать из тестовых функций;
-# todo: сделать класс инструментов для тестов (объединить).
-# ---- ------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 # ------------------------------------------------------- Переменные для тестирования
 table_comment = {'table': 'Таблица содержит выгрузку данных из Airflow по имеющимся дагам (все доступные атрибуты).'}
 
@@ -70,51 +38,8 @@ _SQL_SAVE_COMMENT_TEST_2_3 = """COMMENT ON TABLE "audit"."dags_analyzer" IS :com
 
 _SQL_SAVE_COMMENT_TEST_4 = """COMMENT ON TABLE "{schema}"."dags_analyzer" IS :comment"""
 
+
 # ----------------------------------------------------------------------------------------------------------------------
-# ----------------------------------------- Инструменты (методами):
-class BaseToolsTests:
-    """
-        Набор методов для сокращения кода тестовых функций и упрощения управления тестовыми данными.
-    """
-
-    @staticmethod
-    def raises_router(func, exception, match, result, *args, **kwargs):  # mocked_engine,
-        """
-            Функция управления логикой вызова pytest.raises().
-        """
-
-        if exception:
-            with pytest.raises(exception, match=match):
-                func(*args, **kwargs)  # , **kwargs
-        else:
-            assert func(*args, **kwargs) == result  #
-
-        return None
-
-    @staticmethod
-    def execute_mock(mocked_engine, result):
-        """
-            Настраивает результат метода execute для mocked_engine.
-
-            :param mocked_engine: Заглушка SQLAlchemy Engine.
-            :param result: Результат, который вернет fetchall() после вызова execute.
-        """
-
-        # Получаем подключение через mocked_engine
-        mocked_connection = mocked_engine.connect.return_value.__enter__.return_value
-
-        # Настраиваем execute -> fetchall() -> result
-        mocked_connection.execute.return_value.fetchall.return_value = result
-
-
-
-    @staticmethod
-    def gg(mocked_engine):
-        """
-            Проверка, что execute вызван с корректным SQL.
-        """
-        mocked_connection = mocked_engine.connect.return_value.__enter__.return_value
-        mocked_connection.execute.assert_called_once_with(sql_test, **params_kwargs_test)
 
 
 # ----------------------------------------- Фикстуры и Mocks (методами):
@@ -124,11 +49,21 @@ class Fixtures:
     """
 
     @pytest.fixture(scope="class")
-    def mocked_engine(self):
+    def mocked_engine(self) -> MagicMock:
         """
             Фикстура для создания заглушки Engine SQLAlchemy.
         """
         return MagicMock(spec=Engine)
+
+    @pytest.fixture(scope="class")
+    def mocked_connection(self, mocked_engine: MagicMock) -> MagicMock:
+        """
+            Возвращает макет подключения к базе данных.
+
+            Returns:
+                MagicMock: Макет подключения, который может быть использован в тестах.
+        """
+        return mocked_engine.connect.return_value.__enter__.return_value
 
     @pytest.fixture(scope="class")
     def test_class(self, mocked_engine):
@@ -140,10 +75,10 @@ class Fixtures:
 
 
 # ======================================================= Tests ========================================================
-# @pytest.mark.usefixtures("mocked_engine",  "test_class")
 class TestMethodsTcommenterNoExecuteSQL(Fixtures):  # (Fixtures)
     """
         Тестирование методов не требующих извлечения информации из бд (нет .execute()).
+        Либо наследование либо # @pytest.mark.usefixtures("mocked_engine",  "test_class").
     """
 
     # Перегружаем класс для удобства:
@@ -336,69 +271,36 @@ class TestMethodsTcommenterExecuteSQL(Fixtures):
     # Перегружаем класс для удобства:
     tools = BaseToolsTests
 
-    # ---------------------------------- *** "_reader" ***
-    @pytest.mark.parametrize(
-        "sql_test, params_kwargs_test, exception, match, result",
-        [
-            (SQL_GET_TABLE_COMMENTS, {'name_entity': 'dags_analyzer'}, None, None, [('Table comment',)]),
-            (SQL_GET_TABLE_COMMENTS, {'name_': 'dags_analyzer'}, None, None, [('Table comment',)]),
-        ]
-    )
-    def test__reader(self, mocked_engine, test_class, sql_test, params_kwargs_test, exception, match, result):
-        # Настройка execute, чтобы он возвращал проверяемый result:
-        self.tools.execute_mock(mocked_engine, result)
-        self.tools.raises_router(
-            # ---------------------------------- Passing the function under test:
-            test_class._reader,
-            # ---------------------------------- Other variables
-            exception,
-            match,
-            result,
-            # ---------------------------------- *args:
-            sql_test,
-            # ---------------------------------- ** kwargs
-            **params_kwargs_test
-        )
+    # # ---------------------------------- *** "_reader" ***
+    # @pytest.mark.parametrize(
+    #     "sql_test, params_kwargs_test, exception, match, result",
+    #     [
+    #         # Убрать в интеграционные тесты:
+    #         # (SQL_GET_TABLE_COMMENTS, {'name_entity': 'dags_analyzer'}, None, None, [('Table comment',)]),
+    #         # (SQL_GET_TABLE_COMMENTS, {'name_': 'dags_analyzer'}, None, None, [('Table comment',)]),
+    #
+    #         (SQL_GET_TABLE_COMMENTS, {'name_entity': 'dags_analyzer'}, None, None, {'name_entity': 'dags_analyzer'}),
+    #     ]
+    # )
+    # def test__reader(self, mocked_connection, test_class, sql_test, params_kwargs_test, exception, match, result):
+    #
+    #     # Настройка execute, чтобы он возвращал проверяемый result:
+    #     mocked_connection = self.tools.setter_execute_mock_values(mocked_connection, result)
+    #     self.tools.check_sql(mocked_connection, sql_test, params_kwargs_test)
+    #     # Выполнение SQL-запроса
+    #     self.tools.raises_router(
+    #         # ---------------------------------- Passing the function under test:
+    #         test_class._reader,
+    #         # ---------------------------------- Other variables
+    #         exception,
+    #         match,
+    #         result,
+    #         # ---------------------------------- *args:
+    #         sql_test,
+    #         # ---------------------------------- ** kwargs
+    #         **params_kwargs_test
+    #     )
 
-# def test_reader(mocked_engine):
-#     test_instance = get_instance_class(mocked_engine)
-#     assert test_instance._reader(SQL_GET_COLUMN_COMMENTS_BY_NAME, columns='columns')
-
+# ================
 # row_sql_recorder
 # recorder
-
-
-# @pytest.fixture(scope="class")
-# # def mocked_connection():
-# #     """
-# #         Фикстура для создания замоканного подключения.
-# #     """
-# #
-# #     mock_conn = MagicMock()  # Создаем заглушку подключения
-# #     mock_conn.execute = MagicMock()  # Мокаем метод execute
-# #     return mock_conn
-# #
-# # @pytest.fixture(scope="class")
-# # def mocked_engine(mocked_connection):
-# #     """
-# #         Фикстура для создания заглушки SQLAlchemy Engine.
-# #     """
-# #     engine = MagicMock(spec=Engine)  # Заглушка SQLAlchemy Engine
-# #     # engine.connect.return_value.__enter__.return_value = mocked_connection  # Возвращаем подключение
-# #     # Mock execute:
-# #     engine.connect.return_value.__enter__.return_value.execute = mocked_connection
-# #     return engine
-
-
-# # Создаем mock для engine:
-# @pytest.fixture(scope="class")  # scope=class
-# def mocked_engine():
-#     """
-#         Фикстура для создания заглушки SQLAlchemy Engine.
-#     """
-#
-#     # Заглушка SQLAlchemy = Engine engine.__class__ = Engine
-#     # engine = MagicMock(spec=Engine)
-#     # Mock execute:
-#     # engine.connect.return_value.__enter__.return_value.execute = MagicMock()
-#     return MagicMock(spec=Engine)
