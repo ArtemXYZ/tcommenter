@@ -8,8 +8,11 @@
 
 ## About the project
 
-    The "Tcommenter" library is designed to create comments on tables (and other entities)
-    in a database (in the current version of the library, only for PostgreSQL).
+    The "Tcommenter" library is designed to create comments on tables (and other entities) in a database (in the 
+    current version of the library, only for PostgreSQL). Tcommenter - это видоизмененное сокращение от "Table 
+    Commentator". In this context, the meaning of the word table has a broader meaning than the direct one, and 
+    covers objects such as a view, materialized view (other types of objects are ignored in the current 
+    implementation).
 
     Initially, the library was conceived as a tool for working with metadata in DAGs (DAG - Directed Acyclic Graph,
     https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/dags.html) "Apache Airflow". The need to
@@ -224,3 +227,7 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 [Next-url]: https://nextjs.org/
 [React.js]: https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB
 [React-url]: https://reactjs.org/
+
+[//]: # (В этом контексте значение слова таблица имеет более широкое значение, 
+помимо прямого, и охватывает такие объекты, как материализованный вид
+(другие типы объектов игнорируются в текущей реализации).)
