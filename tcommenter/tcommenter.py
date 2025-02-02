@@ -8,10 +8,10 @@
     Initially, the library was conceived as a tool for working with metadata in DAGs (DAG - Directed Acyclic Graph,
     https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/dags.html) "Apache Airflow". The need to
     rewrite the metadata of database objects arises when working with pandas, namely with "pandas.Data Frame.to_sql"
-    (https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.to_sql.html). If the method has a
-    the if_exists=replace flag, drops the table before inserting new values. In this case, all metadata is
+    (https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.to_sql.html). If the method has
+    the "if_exists=replace" flag, drops the table before inserting new values. In this case, all metadata is
     they are deleted along with the table. This library was created to solve this kind of problem, as well as to
-    to ensure the convenience of working without using SQL directly.
+    ensure the convenience of working without using SQL directly.
 """
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -33,11 +33,8 @@ any_types = TypeVar('any_types')  # Создаем обобщённый тип �
 # ----------------------------------------------------------------------------------------------------------------------
 class Tcommenter:
     """
-        "Tcommenter" содержит необходимые методы для создания, извлечения и перегрузки комментариев к таблицам
-        (и другим сущностям), колонкам в базе данных (в текущей версии библиотеки, только для PostgreSQL).
-
-        Основная область применения "Tcommenter" - "Apache Airflow" для удобства работы с метаданными в DAGs
-        (DAG - Directed Acyclic Graph, https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/dags.html).
+        "TCommenter" contains the necessary methods for creating, extracting, and overloading comments to tables
+        (and other entities), columns in the database (in the current version of the library, only for PostgreSQL).
     """
 
     _PARAMS_SQL = {
@@ -55,70 +52,71 @@ class Tcommenter:
     @staticmethod
     def _validator(value: any_types, *check_type: type[any]) -> any_types:
         """
-            *** Приватный метод валидации (основной). ***
+            *** Private validation method (basic). ***
 
-            Предназначен для проверки корректной передачи аргументов в соответствии с требуемым типом данных.
-            Используется как вложенный метод в других участках кода библиотеки.
+            It is intended for checking the correct transmission of arguments in accordance with the required data type.
+            It is used as a nested method in other sections of the library code.
 
-            * Описание механики:
+            * Description of the mechanics:
 
-                В соответствии с переданным набором допустимых типов данных через параметр "*check_type",
-                осуществляется сверка проверяемого аргумента "value" на основе метода "isinstance()".
-                В случае соответствия хотя бы одному из набора типов данных, возвращается переданный аргумент "value",
-                иначе, вызывается исключение TypeError.
+                According to the passed set of valid data types via the "*check_type" parameter,
+                The "value" argument being checked is being reconciled based on the "isinstance()" method.
+                If at least one of the data types matches, the passed argument "value" is returned,
+                otherwise, a TypeError exception is thrown.
 
             ***
 
-            * Пример вызова:
+            * Example of a call:
 
                 params = self._validator(_params, dict)
 
             ***
 
-            :param value: Значение, которое требуется проверить.
-            :param check_type: Один или несколько типов данных, допустимых для значения value.
-            :return: Возвращает переданное исходное значение value, если оно соответствует одному из типов check_type.
-            :rtype: any_types, возвращается тип исходный тип данных проверяемого аргумента.
-            :raises TypeError: Если значение value не соответствует ни одному из указанных типов данных.
+            :param value: The value to be checked.
+            :param check_type: One or more data types allowed for the value.
+            :return: Returns the passed original value if it matches one of the check_type types.
+            :rtype: any_types, returns the type of the original data type of the argument being checked.
+            :raises TypeError: If the value does not match any of the specified data types.
         """
 
         if isinstance(value, check_type):
             return value
         else:
-            raise TypeError(f'Недопустимый тип данных: "{type(value).__name__}", для аргумента: "{value}".')
-            # Invalid data type: "{type(value).__name__}", for the argument: "{value}".'
+            raise TypeError(f'Invalid data type: "{type(value).__name__}", for the argument: "{value}".')
 
     def _stop_sql_injections(self, sql_param_string: str) -> str:
         """
-            *** Приватный метод экранирования запросов от sql-инъекций. ***
+            *** A private method for escaping queries from SQL injections. ***
 
-                Предназначен для предотвращения передачи sql-инъекций в основной запрос других методов через аргументы
-                экземпляра класса. Комбинирует в себе два подхода увеличивая безопасность:
+            It is designed to prevent SQL injections from being passed to the main query of other methods
+            through arguments.
+            an instance of the class. Combines two approaches, increasing security:
 
-                    - регулярные выражения
-                    - проверка на наличие ключевых sql-команд.
+                - regular expressions
+                - checking for key SQL commands.
 
-            * Описание механики:
+            * Description of the mechanics:
 
-                1) Проверка на разрешённые символы:
-                Регулярное выражение ^[a-zA-Z0-9_.\\-]+$ не пропускает пустые строки и другие выражения не
-                соответствующие разрешенным, вызывая исключение ValueError. Допускаются только строки, содержащие
-                эти символы без пробелов:
+                1) Checking for allowed characters:
+                The regular expression ^[a-zA-Z0-9_.\\-]+$ does not skip empty lines and other expressions do
+                not match the allowed ones by throwing a ValueError exception. Only lines containing
+                are allowed.
+                these characters are without spaces:
 
-                    - строчные и заглавные латинские буквы (a-z, A-Z);
-                    - цифры (0-9);
-                    - подчёркивание;
-                    - точка;
-                    - дефис.
+                    - lowercase and uppercase Latin letters (a-z, A-Z);
+                    - numbers (0-9);
+                    - underline;
+                    - period;
+                    - hyphen.
 
-                Это позволяет использовать строки, состоящие из обычных идентификаторов, имён таблиц, колонок
-                или других параметров SQL, но исключает неподходящие символы, такие как кавычки, пробелы или
-                специальные символы, которые могут быть частью SQL-инъекции.
+                This allows you to use strings consisting of regular identifiers, table names, and columns.
+                or other SQL parameters, but excludes inappropriate characters such as quotation marks, spaces,
+                or special characters that may be part of an SQL injection.
 
-                2) Проверка на наличие ключевых SQL-команд:
-                После проверки символов строка дополнительно анализируется на наличие зарезервированных SQL-ключевых
-                слов, которые могут быть использованы в инъекциях. Если строка содержит любые из следующих запрещённых
-                слов, будет вызвано исключение ValueError:
+                2) Checking for SQL key commands:
+                After checking the characters, the string is additionally analyzed for reserved SQL keywords.
+                words that can be used in injections. If the string contains any of the following prohibited
+                For example, a ValueError exception will be thrown.:
 
                     - DROP;
                     - CREATE;
@@ -126,165 +124,172 @@ class Tcommenter:
                     - INSERT;
                     - UPDATE;
                     - DELETE;
-                    - Комментарий SQL "--";
-                    - Символ завершения команды ";".
+                    - SQL comment "--";
+                    - The command completion symbol ";".
 
-            Это позволяет предотвратить использование строк, содержащих вредоносные SQL-конструкции, которые могут
-            повредить структуру базы данных или её содержимое.
+            This prevents the use of strings containing malicious SQL constructs that can
+            damage the database structure or its contents.
 
 
             ***
 
-            * Пример вызова:
+            * Example of a call:
 
                 self.name_entity: str = self._stop_sql_injections(self._validator(name_table, str))
 
             ***
 
-            :param sql_param_string: Строка, которая передаётся для проверки на безопасность перед использованием \
-                в SQL-запросе.
-            :return: Проверенная строка, безопасная для использования в SQL-запросе.
+            :param sql_param_string: A string that is passed for security verification before use \
+                in the SQL query.
+            :return: A validated string that is safe to use in an SQL query.
             :rtype: str.
-            :raises ValueError: Если строка содержит недопустимые символы или ключевые слова SQL, \
-                которые могут быть частью инъекции.
+            :raises ValueError: If the string contains invalid SQL characters or keywords, \
+                which may be part of the injection.
         """
 
         sql_param_string = self._validator(sql_param_string, str)
 
-        # Проверка на разрешённые символы:
+        # Checking for allowed characters:
         if not re.match(r'^[a-zA-Z0-9_.\-]+$', sql_param_string):
-            raise ValueError(f'Ошибка проверки строки: "{sql_param_string}"! Обнаружен недопустимый символ. '
-                             f'Разрешены только буквы латинского алфавита, цифры, символы: "_", ".", "-".')
+            raise ValueError(
+                f'String validation error: "{sql_param_string}"! An invalid character was detected. '
+                f'Only letters of the Latin alphabet, numbers, symbols are allowed.: "_", ".", "-".'
+            )
 
-        # Проверка на наличие sql-ключевых слов:
+        # Checking for SQL keywords:
         disallowed_keywords = ["DROP", "CREATE", "ALTER", "INSERT", "UPDATE", "DELETE", "--", ";"]
         if any(keyword in sql_param_string.upper() for keyword in disallowed_keywords):
-            raise ValueError(f'Ошибка проверки строки: "{sql_param_string}"! '
-                             f'Обнаружено присутствие sql-ключевых слов: {disallowed_keywords}'
-                             )
+            raise ValueError(
+                f'String verification error:"{sql_param_string}"! '
+                f'The presence of SQL keywords was detected:{disallowed_keywords}'
+            )
 
         return sql_param_string
 
     def _check_all_elements(self, check_type: type, args_array: dict | list | tuple) -> bool:  # *args_elements
         """
-            *** Приватный метод валидации всего набора аргументов на соответствие единому типу данных. ***
+            *** A private method for validating the entire set of arguments against a single data type. ***
 
-            Предназначен для обеспечения корректной передачи всего переданного набора аргументов "args_array"
-            в соответствии требуемому (указанному к проверке в "check_type") типу данных. Используется как
-            вложенный метод в других участках кода библиотеки, для управления логикой дальнейшей обработки данных
-            (перенаправление данных в блоки условий).
+            It is designed to ensure the correct transmission of the entire passed set of arguments "args_array"
+            in accordance with the required data type (specified for verification in "check_type"). Used as
+            a nested method in other parts of the library code to control the logic of further data processing
+            (redirecting data to condition blocks).
 
-            * Описание механики:
+            * Description of the mechanics:
 
-                В соответствии с переданным типом данных (допустимым) через параметр "check_type", осуществляется
-                сверка проверяемого массива аргументов "args_array" на основе совместной работы методов "all" и
-                "isinstance". Предварительно осуществляется валидация с помощью метода "self._validator()" на допустимые
-                значения для аргументов:
-                    "check_type" - проверка передачи типа данных, например "str", не допустимое значение,
-                        например "test";
-                    "args_array" - будет проверен на соответствие dict | list | tuple.
+                In accordance with the passed data type (acceptable) through the "check_type" parameter, the following
+                is performed reconciliation of the checked array of arguments "args_array" based on the collaboration
+                of the "all" and "isinstance" methods. Validation is pre-performed using the "self._validator()" method
+                for valid values for arguments:
+                "check_type" - checking the transmission of a data type, for example "str", an invalid value, for
+                example, "test";
+                "args_array" - will be checked for compliance with dict|list | tuple.
 
             ***
 
-            * Пример вызова:
+            * Example of a call:
 
                 if self._check_all_elements(str, param_column_index_or_name):
                     pass
 
             ***
 
-            :param check_type: Один или несколько типов данных, допустимых для значения value.
-            :param args_array: Массив аргументов для проверки поэлементно, допустимые типы только dict | list | tuple.
-            :return: Возвращает True, если "args_array" соответствует типу "check_type" \
-                и пройдена валидация, иначе False.
+            :param check_type: One or more data types allowed for the value.
+            :param args_array: An array of arguments to check element-by-element, only dict|list|tuple \
+                types are allowed.
+            :return: Returns True if "args_array" matches the type "check_type" \
+                and the validation was passed, otherwise False.
             :rtype: bool.
-            :raises: Возможны исключения во вложенных служебных методах (подробно смотрите в их описании).
+            :raises: Exceptions are possible in nested utility methods (see their description for details).
         """
 
-        # Валидация переданного аргумента (соответствует типу данных) для дальнейшей проверки:
+        # Validation of the passed argument (corresponds to the data type) for further verification:
         valid_type = self._validator(check_type, type)
-        # Разрешенные типы для args_array:
+        # Allowed types for args_array:
         valid_args_array = self._validator(args_array, (dict, list, tuple,))
 
-        # Проверяем, все ли элементы имеют один и тот же тип:
+        # Check if all the elements have the same type:
         return all(isinstance(element, valid_type) for element in valid_args_array)
 
     def _insert_params_in_sql(self, sql: str, **sql_params) -> str:
         """
-            *** Приватный метод для подстановки в sql запросы имени сущности и других параметров при необходимости. ***
+            *** A private method for substituting entity name and other parameters in sql queries, if necessary. ***
 
-            В основном, данный метод предназначен для вставки значения "self.name_entity" (имени таблицы |
-            материализованного представления | представления), получаемого из "__init__". Данный метод
-            не предоставляет проверки на sql-инъекций, self.name_entity" проходит проверку при инициализации класса.
-            Использовать "**sql_params" без предварительной проверки в "self._stop_sql_injections" небезопасно.
-            Используется как вложенный метод в других участках кода библиотеки.
+            Basically, this method is designed to insert the value "self.name_entity" (table name |
+            a materialized view|representation) obtained from "__init__". This method
+            It does not provide checks for SQL injection, self.name_entity" is checked during class initialization.
+            It is unsafe to use "**sql_params" without first checking in "self._stop_sql_injections".
+            It is used as a nested method in other sections of the library code.
 
-            * Описание механики:
+            * Description of the mechanics:
 
-                Если отсутствуют дополнительные аргументы "**sql_params", то по умолчанию происходит подстановка в sql
-                self.name_entity", иначе осуществляется форматирование с учетом "**sql_params". Результатом работы
-                будет возврат успешно отформатированного sql. В случае некорректно переданного имени плейсхолдера,
-                вызывается исключение ValueError.
+                If there are no additional arguments "**sql_params", then SQL substitution occurs by default.
+                self.name_entity", otherwise formatting is performed taking into account "**sql_params". The
+                result of the work the successfully formatted SQL will be returned. In case of incorrectly
+                transmitted placeholder name, a ValueError exception is raised.
 
             ***
 
-            * Пример вызова:
+            * Example of a call:
 
                 sql = self._insert_params_in_sql(sql_blank)
                 sql = self._insert_params_in_sql(sql_blank, shem_name=shem_name_value)
 
             ***
 
-            :param sql: Шаблон sql с плейсхолдерами.
-            :param sql_params: Именованные аргументы.
-            :return: Возвращает отформатированный sql (по умолчанию с именем сущности).
-            :rtype: str.
-            :raises ValueError: Вызванный KeyError, в случае некорректно переданного имени плейсхолдера,
-                а так же возможны другие исключения во вложенных служебных методах (подробно смотрите в их описании).
+            :param sql: An SQL template with placeholders.
+            :param sql_params: Named arguments.
+            :return: Returns formatted SQL (with the entity name by default).
+            :type: str.
+            :raise ValueError: Caused by a KeyError if the placeholder name is incorrectly passed.,
+                there may also be other exceptions in nested utility methods (see their description for details).
         """
 
         valid_sql = self._validator(sql, str)
 
         try:
             if not sql_params:
-                # Проверка на инъекции пройдена при инициализации:
-                fin_sql = valid_sql.format(name_entity=self.name_entity)  # todo: возникает ошибка, если не все ключи будут переданы
-                # todo: возможно нужно еще передавать схему!?
+                # Injection check passed during initialization:
+                # !: an error occurs if not all keys are transferred
+                fin_sql = valid_sql.format(name_entity=self.name_entity)
+                # todo: maybe you still need to transfer the schema!?
             else:
                 fin_sql = valid_sql.format(name_entity=self.name_entity, **sql_params)
 
             return fin_sql
 
-        # Ошибка не возникнет если, все существующие ключи совпадут, а излишние игнорируются.
+        # An error will not occur if all existing keys match, and unnecessary ones are ignored.
         except KeyError as error:
-            raise ValueError(f'Ошибка форматирования SQL-запроса: плейсхолдер "{error.args[0]}" не получил значения, '
-                             f'(не был передан соответствующий аргумент или имя плейсхолдера не верно).')
+            raise ValueError(
+                f'SQL query formatting error: placeholder "{error.args[0]}" did not receive a value, '
+                f'(the corresponding argument was not passed, or the placeholder name is incorrect).'
+            )
 
     def _generate_params_list_for_sql(self, params: tuple[int | str] = None) -> list[int | str]:
         """
-            *** Приватный метод для генерации списка имен колонок или их индексов. ***
+            *** A private method for generating a list of column names or their indexes. ***
 
-            Предназначен для генерации списка имен колонок или их индексов, используемых в sql запросах в качестве
-            параметров (для дальнейшей передачи через multyparams в conn.execute(sql, multyparams)).
-            Используется как вложенный метод в других участках кода библиотеки.
+            It is designed to generate a list of column names or their indexes used in SQL queries as
+            parameters (for further transmission via multiparams to conn.execute(sql, multiparams)).
+            It is used as a nested method in other sections of the library code.
 
-            * Описание механики:
+            * Description of the mechanics:
 
-                Преобразование картежа (образованного от *args из других методов) в список. Сначала валидация входных
-                аргументов, далее работа list comprehension.
+                Converting a tuple (formed from *args from other methods) to a list. First, validation of the input
+                arguments, then the list comprehension works.
 
             ***
 
-            * Пример вызова:
+            * Example of a call:
 
                 params_list = self._generate_params_list_for_sql(params=param_column_index_or_name)
 
             ***
 
-            :param params: Значения параметров для подстановки в sql.
-            :return: Список параметров.
+            :param params: Parameter values to be substituted in SQL.
+            :return: A list of parameters.
             :rtype: list[int | str].
-            :raises: Возможны другие исключения во вложенных служебных методах (подробно смотрите в их описании).
+            :raises: Other exceptions are possible in nested utility methods (see their description for details).
         """
 
         valid_params: tuple = self._validator(params, tuple)
@@ -295,111 +300,115 @@ class Tcommenter:
             param_column_index_or_name: tuple[int | str] | None
     ) -> tuple[str, list[int | str]]:
         """
-            *** Приватный метод валидации имен колонок или их индексов передаваемых в запрос в качестве параметров. ***
+            *** A private method for validating column names or their indexes passed to the query as parameters. ***
 
-            Предназначен для обеспечения корректной передачи параметров (через multyparams в conn.execute(sql,
-            multyparams)) в запрос, подчиняющейся логике: в параметры попадают либо только имена колонок, либо только
-            их индексы. Это позволяет избежать дублирования передаваемых параметров (исключается сценарий, когда
-            пользователь вводит и численное представление колонки (индекс) и строковое (имя колонки)), что упрощает
-            обработку, конкретизируя поведение метода.
+            It is designed to ensure the correct transmission of parameters (via multiparams to conn.execute(sql,
+            multiparams)) to a query that follows logic: either only column names or only column names are included in
+            the parameters. their indexes. This allows you to avoid duplicating the passed parameters the scenario is
+            excluded when the user enters both a numerical representation of the column (index) and a string
+            representation (column name), which simplifies processing, specifying the behavior of the method.
 
-            * Описание механики:
+            * Description of the mechanics:
 
-                В зависимости от типа переданных данных (либо имена колонок, либо индексы), метод возвращает их же, но
-                в виде списка и соответствующий sql запрос для записи комментариев к колонкам.
-                На более низком уровне происходит валидация на соответствие единому типу данных во всем массиве данных:
-                либо только str, либо только int, что обеспечивает верхнеуровневую логику.
-                Используется как вложенный метод в других участках кода библиотеки.
+                Depending on the type of data transmitted (either column names or indexes), the method returns the same
+                data, but in the form of a list and the corresponding SQL query for writing column comments.
+                At a lower level, validation takes place for compliance with a single data type in the entire data
+                array either str only or int only, which provides top-level logic.
+                It is used as a nested method in other sections of the library code.
 
             ***
 
-            * Пример вызова:
+            * Example of a call:
 
-                # Получаем sql (или для имен, или для индексов) и список параметров:
+               # We get SQL (either for names or indexes) and a list of parameters:
                 sql, params_list_only_from_indexes_or_name = \
                     self._get_sql_and_params_list_only_from_indexes_or_names(param_column_index_or_name)
 
             ***
 
-            :param param_column_index_or_name: Значения параметров для подстановки в sql (или индексы, \
-                или имена колонок, или смешанно).
-            :return: Sql запрос (или для записи по имени колонки или по индексу) и список параметров (гарантированно
-            либо только индексы, либо только имена колонок).
+            :param param_column_index_or_name: Parameter values for SQL substitution (either indexes, \
+                or column names, or mixed).
+            :return: SQL query (either for writing by column name or by index) and a list of parameters (guaranteed
+                either indexes only, or column names only).
             :rtype: tuple[str, list[int | str]].
-            :raises: Возможны другие исключения во вложенных служебных методах (подробно смотрите в их описании).
+            :raises: Other exceptions are possible in nested utility methods (see their description for details).
         """
 
-        # Если были указаны параметры на конкретные колонки:
+        # If the parameters for specific columns were specified:
         if param_column_index_or_name:
 
-            #  Проверка первого элемента на тип данных (исключает дублирования проверок):
+            # Checking the first element for the data type (eliminates duplicate checks):
             if isinstance(param_column_index_or_name[0], str):  # check_first_itm_type
 
-                # Если вводим имя колонки (хотим получить комментарий для колонки по ее имени):
+                # If we enter the column name (we want to get a comment for the column by its name):
                 if self._check_all_elements(str, param_column_index_or_name):
 
-                    # Соответствующий SQL и последовательность имен колонок (через запятую в кавычках): strparams.
+                    # The corresponding SQL and the sequence of column names \
+                    # (separated by commas in quotation marks): strparams.
                     return SQL_GET_COLUMN_COMMENTS_BY_NAME, self._generate_params_list_for_sql(
                         params=param_column_index_or_name
                     )
 
-                # Если не все элементы имеют один и тот же тип или недопустимые:
+                # If not all elements have the same type or are invalid:
                 else:
-                    raise TypeError(f'Ошибка валидации входных данных! '
-                                    f'Переданные аргументы не соответствуют единому типу данных, получено: '
-                                    f'{[f'(value: "{param}", type: {type(param).__name__})' \
-                                        for param in param_column_index_or_name]}'
-                                    f'Должны быть либо только str (имена колонок), либо только int (индексы колонок).'
-                                    )
+                    raise TypeError(
+                        f'Input validation error! '
+                        f'The arguments passed do not correspond to a single data type, received: '
+                        f'{[f'(value: "{param}", type: {type(param).__name__})' \
+                            for param in param_column_index_or_name]}'
+                        f'There must be either only str (column names) or only int (column indexes).'
+                    )
 
             elif isinstance(param_column_index_or_name[0], int):
 
-                # Если вводим индекс колонки (хотим получить комментарий для колонок по индексам):
+                # If we enter the column index (we want to get a comment for the columns by indexes):
                 if self._check_all_elements(int, param_column_index_or_name):
 
-                    # Соответствующий SQL и последовательность имен колонок (через запятую в кавычках): strparams.
+                    # The corresponding SQL and the sequence of column names \
+                    # (separated by commas in quotation marks): strparams.
                     return SQL_GET_COLUMN_COMMENTS_BY_INDEX, self._generate_params_list_for_sql(
                         params=param_column_index_or_name
                     )
 
-                # Если не все элементы имеют один и тот же тип или недопустимые:
+                # If not all elements have the same type or are invalid:
                 else:
-                    raise TypeError(f'Ошибка валидации входных данных! '
-                                    f'Переданные аргументы не соответствуют единому типу данных, получено: '
-                                    f'{[f'(value: "{param}", type: {type(param).__name__})' \
-                                        for param in param_column_index_or_name]}'
-                                    f'Должны быть либо только str (имена колонок), либо только int (индексы колонок).'
-                                    )
-        # todo нет else блока, на пустоту нет никаких действий.
+                    raise TypeError(
+                        f'Input validation error! '
+                        f'The arguments passed do not correspond to a single data type, received: '
+                        f'{[f'(value: "{param}", type: {type(param).__name__})' \
+                            for param in param_column_index_or_name]}'
+                        f'There must be either only str (column names) or only int (column indexes).'
+                    )
+        # todo there is no else block, there is no action on emptiness.
 
     def _reader(self, sql: str | TextClause, **params: str | int | list) -> list[tuple]:
         """
-            *** Приватный метод чтения данных в SQL базе данных. ***
+           *** Private method of reading data in an SQL database. ***
 
-            Предназначен для выполнения SQL запросов на чтение данных с подстановкой параметров или без.
-            Используется как вложенный метод в других участках кода библиотеки.
+            It is designed to execute SQL queries to read data with or without parameter substitution.
+            It is used as a nested method in other sections of the library code.
 
-            * Описание механики:
+            * Description of the mechanics:
 
-                Метод основан на работе библиотеки "SQLAlchemy" ("execute()"). Опциональная передача параметров,
-                позволяет сделать self._reader() универсальным. Механизм передачи через multyparams
-                в conn.execute(sql, multyparams) обеспечивает защиту от SQL-инъекций.
-                В случае возникновения ошибки при осуществлении запроса, вызывается исключение RuntimeError
-                с подробностями (SQLAlchemyError).
+                The method is based on the "SQLAlchemy" ("execute()") library. Optional parameter transmission,
+                allows you to make a self._reader () is universal. Transmission mechanism via Multi params
+                conn.execute (sql, multiparams) provides protection against SQL injection.
+                If an error occurs when a request is made, a RuntimeError exception is thrown.
+                with errors (SQLAlchemy Error).
 
             ***
 
-            * Пример вызова:
+            * Example of a call:
 
                 result = self._reader(sql, placeholder_sales='sales')
 
             ***
 
-            :param sql: Шаблон sql запроса.
-            :param params: kwargs (ключ: имя плейсхолдера в sql шаблоне, значение: необходимые данные).
-            :return: Возвращает список кортежей, пример результата: [(1, 'Alice'), (2, 'Bob'), (3, 'Charlie')] или [].
+            :param sql:SQL query template.
+            :param params: kwargs (key: placeholder name in the SQL template, value: required data).
+            :return: Returns a list of tuples, example result: [(1, 'Alice'), (2, 'Bob'), (3, 'Charlie')] or [].
             :rtype: list[tuple].
-            :raises RuntimeError: Если (SQLAlchemyError).
+            :raises RuntimeError: If (SQLAlchemyError).
         """
 
         _params = params or None
@@ -420,40 +429,40 @@ class Tcommenter:
         except SQLAlchemyError as e:
             raise RuntimeError(f"Error executing query: {e}")
 
-        # tuple_list = result.fetchall()  # Возвращает объект Row
-        tuple_list = [tuple(row) for row in result.fetchall()]  # fetchall()  возвращает [}, если нет данных.
+        # tuple_list = result.fetchall()  # Returns the Row object
+        tuple_list = [tuple(row) for row in result.fetchall()]  # fetchall() returns [] if there is no data.
 
-        # Даже если fetchall() вернет пустой список, генератор безопасно вернет [].
+        # Even if fetchall() returns an empty list, the generator will safely return [].
         return tuple_list
 
     def _recorder(self, sql: str | TextClause, **params: None | str | int) -> None:
         """
-            *** Приватный метод записи данных в SQL базе данных. ***
+            *** A private method for writing data to an SQL database. ***
 
-            Предназначен для выполнения SQL запросов на запись данных с подстановкой параметров или без.
-            Используется как вложенный метод в других участках кода библиотеки.
+            It is designed to execute SQL queries for writing data with or without parameter substitution.
+            It is used as a nested method in other sections of the library code.
 
-            * Описание механики:
+            * Description of the mechanics:
 
-                Метод основан на работе библиотеки "SQLAlchemy" ("execute()"). Опциональная передача параметров,
-                позволяет сделать self._recorder() универсальным. Механизм передачи через multyparams
-                в conn.execute(sql, multyparams) обеспечивает защиту от SQL-инъекций.
-                В случае возникновения ошибки при осуществлении запроса, вызывается исключение RuntimeError
-                с подробностями (SQLAlchemyError).
-
-            ***
-
-            * Пример вызова:
-
-                self._recorder(sql, sales='Этот комментарий будет записан для колонки в метаданные.')
+                The method is based on the "SQLAlchemy" ("execute()") library. Optional parameter transmission,
+                allows you to make a self._recorder () is universal. Transmission mechanism via Multi params
+                conn.execute (sql, multiparams) provides protection against SQL injection.
+                If an error occurs when a request is made, a RuntimeError exception is thrown.
+                with errors (SQLAlchemy Error).
 
             ***
 
-            :param sql: Шаблон sql запроса.
-            :param params: kwargs (ключ: имя плейсхолдера в sql шаблоне, значение: необходимые данные).
+            * Example of a call:
+
+                self._recorder(sql, sales='This comment will be recorded in the metadata for the columns.')
+
+            ***
+
+            :param sql: SQL query template.
+            :param params: kwargs (key: placeholder name in the SQL template, value: optional data).
             :return: None.
-            :rtype: None.
-            :raises RuntimeError: Если (SQLAlchemyError).
+            :rtype: Note.
+            :raises Runtime Error: is (SQLAlchemy Error).
         """
 
         _params = params or None
@@ -477,108 +486,109 @@ class Tcommenter:
 
     def _create_comment(self, type_comment: str, comment_value: str, name_column: str = None) -> None:
         """
-            *** Приватный универсальный метод для создания комментариев к различным сущностям в базе данных. ***
+            *** A private universal method for creating comments on various entities in a database. ***
 
-            Предназначен для создания комментариев к различным сущностям в базе данных, таких как (колонки | таблицы |
-            материализованные представления | представления) и инкапсуляции в публичные методы, предназначенные для
-            конкретного типу сущности (в зависимости от указанного "type_comment").
-            Используется как вложенный метод в ряде основных методов библиотеки по созданию комментариев.
+            Designed to create comments on various entities in the database, such as (columns| tables |
+            materialized views|representations) and encapsulations in public methods designed for
+            a specific type of entity (depending on the specified "type_comment").
+            It is used as a nested method in a number of the library's main methods for creating comments.
 
-            * Описание механики:
+            * Description of the mechanics:
 
-                В соответствии с переданным ключом в "type_comment", например 'COLUMN' или 'TABLE' определяется логика
-                дальнейшей обработки по вставке в бланк запроса sql (выполняющего запись комментариев) и передачу
-                его в приватный метод отвечающий за запись информации в базу данных "self._recorder()".
-                Логика разделяется на две основные ветки обработки:
-                    - если это комментарий к колонке в базе данных;
-                    - иначе это комментарий к сущности, такой как таблица, представление или материализованное
-                представление.
-                После определения типа, осуществляется форматирование бланк запроса sql, заполняя его значениями,
-                такими как "schema", "name_column" и др. Далее передача подготовленного sql в "self._recorder()".
-                В случае если type_comment == 'COLUMN', а аргумент "name_column" не будет передан, вызывается
-                исключение ValueError.
+                According to the passed key in "type_comment", for example, 'COLUMN' or 'TABLE', the logic is defined
+                further processing by inserting an SQL query (recording comments) into the form and transmitting
+                it's a private method responsible for writing information to the database "self._recorder()".
+                The logic is divided into two main processing branches:
+                - if it is a comment to a column in the database;
+                    - otherwise, it is a comment on an entity, such as a table, view, or materialized
+                performance.
+                After determining the type, the SQL query form is formatted, filling it with values.,
+                such as "schema", "name_column", etc. Next, transfer the prepared SQL to "self._recorder()".
+                If type_comment == 'COLUMN' and the "name_column" argument is not passed, it is called
+                the ValueError exception.
 
             ***
 
-            * Пример вызова:
+            * Example of a call:
 
                 self._create_comment(type_comment='TABLE', comment_value=comment)
 
             ***
 
-            :param type_comment: Значение типа сущности, например 'TABLE'.
-            :param comment_value: Комментарий, который необходимо записать к сущности в базе данных.
-            :param name_column: Опционально, if type_comment == 'COLUMN'.
-            :return: None, в случае успешной записи в базу данных.
-            :rtype: None.
-            :raises ValueError: Если не передано значение "name_column" при условии, if type_comment == 'COLUMN', \
-                а так же возможны другие исключения во вложенных служебных методах (подробно смотрите в их описании).
+            :param type_comment: The value of the entity type, for example, 'TABLE'.
+            :param comment_value: A comment to be written to an entity in the database.
+            :param name_column: Optional, if type_comment == 'COLUMN'.
+            :return: None, in case of a successful write to the database.
+            :rtype: Note.
+            :raise ValueError: If the value "name_column" is not passed, provided if type_comment == 'COLUMN', \
+            and other exceptions are possible in nested utility methods (see their description for details).
         """
 
         if type_comment == 'COLUMN':
             if name_column:
 
                 comment_value = self._validator(comment_value, str)
-                # todo: возможно нужно перенести по умолчанию в _insert_params_in_sql
+                # todo: it may need to be moved by default to _insert_params_in_sql
                 mutable_sql_variant = self._insert_params_in_sql(
                     SQL_SAVE_COMMENT_COLUMN,
                     entity_type=self._PARAMS_SQL.get(type_comment),
-                    schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации:
+                    schema=self.schema,  # There is an injection check at the top level during initialization:
                     name_column=self._stop_sql_injections(name_column),
                 )
 
-                # Передача comment в параметры на запись безопасна (методы SQLAlchemy).
+                # Passing comment to write parameters is safe (SQLAlchemy methods).
                 self._recorder(mutable_sql_variant, comment=comment_value)
 
             else:
-                raise TypeError(f'Отсутствует требуемый именованный аргумент "name_column"! '
-                                f'Если тип создаваемого комментария - колонка (type_comment == "COLUMN"), '
-                                f'передача аргумента "name_column" - обязательна! '
-                                f'В остальных случаях - опционально.'
-                                )
+                raise TypeError(
+                    f'The required named argument "name_column" is missing! If the type of comment being created is a '
+                    f'column (type_comment == "COLUMN"), passing the "name_column" argument is required! '
+                    f'In all other cases, it is optional.'
+                )
 
 
-        # Если комментарий не для колонки, значит для любой другой сущности (таблица, представление, ...)
+        # If a comment is not for a column, it means for any other entity (table, view, ...)
         else:
-            # todo: возможно нужно перенести по умолчанию в _insert_params_in_sql
+            # todo: it may need to be moved by default to _insert_params_in_sql
             mutable_sql_variant = self._insert_params_in_sql(
                 SQL_SAVE_COMMENT,
                 entity_type=self._PARAMS_SQL.get(type_comment),
-                schema=self.schema,  # Проверка на инъекции есть на верхнем уровне при инициализации:
+                schema=self.schema,  # There is an injection check at the top level during initialization:
             )
 
             self._recorder(mutable_sql_variant, comment=comment_value)
 
     def _set_column_comment(self, comments_columns_dict: dict) -> None:
         """
-            *** Приватный метод для создания комментариев к колонкам в базе данных. ***
+            *** A private method for creating comments on columns in the database. ***
 
-            Предназначен для создания комментариев к колонкам сущностей (таблиц, представлений, и т.д.) в базе данных
-            (в текущей версии библиотеки, только для PostgreSQL).
-            Практически одинаков с "self.set_column_comment()", разница лишь в местах применения (данный метод
-            используется в качестве основы в "save_comments()") и типе принимаемого аргумента (принимает dict).
+            Designed to create comments on columns of entities (tables, views, etc.) in a database
+            (in the current version of the library, only for PostgreSQL).
+            It is almost the same as "self.set_column_comment()", the only difference is in the places of application
+            (this method it is used as the basis in "save_comments()") and the type of the accepted argument
+            (accepts dict).
 
 
-            * Описание механики:
+            * Description of the mechanics:
 
-                В данном методе используется служебный "self._create_comment()" в качестве вложенного с указанием
-                type_comment='COLUMN', обеспечивая выполнение основной логики. (подробно смотрите в его описании).
-                Осуществляя итерирование по всему словарю, поочередно записывается комментарии к колонкам (sql
-                синтаксис обеспечивает запись только к одной колонке).
+                This method uses the service "self._create_comment()" as a nested method with
+                type_comment='COLUMN', ensuring the execution of the basic logic. (for more information, see its
+                description). By iterating through the entire dictionary, column comments are written one at a time
+                (SQL syntax provides entry to only one column).
 
             ***
 
-            * Пример вызова:
+            * Example of a call:
 
-                params = {'sales': 'Этот комментарий будет записан для колонки в метаданные.'}
+                params = {'sales': 'This comment will be recorded in the metadata for the column.'}
                 self._set_column_comment(params)
 
             ***
 
-            :param comments_columns_dict: Комментарий, который необходимо записать к сущности в базе данных.
-            :return: None, в случае успешной записи в базу данных.
-            :rtype: None.
-            :raises: Возможны другие исключения во вложенных служебных методах (подробно смотрите в их описании).
+            :param comments_columns_dict: A comment to be written to an entity in the database.
+            :return: None, in case of a successful write to the database.
+            :rtype: Note.
+            :raises: Other exceptions are possible in nested utility methods (see their description for details).
         """
 
         if self._validator(comments_columns_dict, dict):
@@ -586,177 +596,182 @@ class Tcommenter:
             for key_name_column, value_comment in comments_columns_dict.items():
                 self._create_comment(type_comment='COLUMN', comment_value=value_comment, name_column=key_name_column)
         else:
-            raise ValueError(f'Ошибка: аргумент "comments_columns_dict" не может быть пустым. '
-                             f' Переданный словарь не содержит значений: {comments_columns_dict}.')
+            raise ValueError(
+                f'Error: The "comments_columns_dict" argument cannot be empty. '
+                f' The transmitted dictionary does not contain any values: {comments_columns_dict}.'
+            )
 
     def get_type_entity(self) -> str:
         """
-           *** Метод определения типа сущности ('table', 'view', 'mview', ...) базы данных по ее имени. ***
+           *** A method for determining the type of entity ('table', 'view', 'view', ...) of a database by its name. ***
 
-            Предназначен для определения типа сущности базы данных (в текущей версии библиотеки, только для PostgreSQL),
-            таких как:
-                - r = обычная таблица (Relation),
-                - i = индекс (Index),
-                - S = последовательность (Sequence),
-                - t = таблица TOAST,
-                - v = представление (View),
-                - m = материализованное представление (Materialized view),
-                - c = составной тип (Composite type),
-                - f = сторонняя таблица (Foreign table),
-                - p = секционированная таблица (Partitioned table),
-                - I = секционированный индекс (partitioned Index).
+            It is intended for determining the type of database entity (in the current version of the library, only for
+            PostgreSQL), such as:
+                - r = regular table (Relation),
+                - i = Index,
+                - S = Sequence,
+                - t = TOAST table,
+                - v = View,
+                - m = Materialized view,
+                - c = Composite type,
+                - f = Foreign table,
+                - p = Partitioned table,
+                - I = partitioned Index.
 
-            * Описание механики:
+            * Description of the mechanics:
 
-                Выполняется sql запрос к системным таблицам в базе данных, отвечающих за хранение статистики и по имени
-                сущности определяется ее тип. Варианты результата запроса (type_entity): 'table', 'view', 'mview',
-                'index', 'sequence', 'toast', 'composite_type', 'foreign_table', 'partitioned_table',
-                'partitioned_index'.
-                Передача аргументов не требуется, используются аргументы экземпляра
-                класса при инициализации (self.name_entity).
-                Возможны другие исключения во вложенных служебных методах (подробно смотрите в их описании).
+                An SQL query is executed to the system tables in the database responsible for storing statistics
+                and by name An entity is defined by its type. Query result options (type_entity):
+                'table', 'view', 'mview', 'index', 'sequence', 'toast', 'composite_type', 'foreign_table',
+                'partitioned_table', 'partitioned_index'.
+                Passing arguments is not required, instance arguments are used.
+                of the class during initialization (self.name_entity).
+                There may be other exceptions in nested utility methods (see their description for details).
 
             ***
 
-            * Пример вызова:
+            * Example of a call:
 
                 comments = Tcommenter(engine=ENGINE, name_table='sales', schema='audit')
                 type_entity = comments.get_type_entity()
 
             ***
 
-            :return: Возвращает значение сущности: ('table', 'view', 'mview', ...).
+            :return: Returns the value of the entity: ('table', 'view', 'mview', ...).
             :rtype: str.
         """
 
-        # Определение типа сущности (варианты: 'table', 'view', 'mview'):
+        # Defining the type of entity (options: 'table', 'view', 'view'):
         type_entity = self._reader(SQL_CHECK_TYPE_ENTITY, name_entity=self.name_entity)
 
         return type_entity[0][0] if type_entity else None
 
     def set_table_comment(self, comment: str) -> None:
         """
-            *** Метод для создания комментариев к таблицам в базе данных. ***
+            *** A method for creating comments to tables in a database. ***
 
-            Предназначен для создания комментариев к таблицам в базе данных (в текущей версии библиотеки, только для
-            PostgreSQL).
+            It is intended for creating comments to tables in the database (in the current version of the library,
+            only for PostgreSQL).
 
-            * Описание механики:
+            * Description of the mechanics:
 
-                В данном методе используется служебный "self._create_comment()" в качестве вложенного с указанием
-                type_comment='TABLE', обеспечивая выполнение основной логики. (подробно смотрите в его описании).
+                This method uses the service "self._create_comment()" as a nested method with
+                type_comment='TABLE', ensuring the execution of the basic logic. (for more information,
+                see its description).
 
             ***
 
-            * Пример вызова:
+            * Example of a call:
 
                 comments = Tcommenter(engine=ENGINE, name_table='sales', schema='audit')
-                comments.set_table_comment('Этот комментарий будет записан к таблице в метаданные.')
+                comments.set_table_comment('This comment will be written to the table in the metadata.')
 
             ***
 
-            :param comment: Комментарий, который необходимо записать к сущности в базе данных.
-            :return: None, в случае успешной записи в базу данных.
-            :rtype: None.
-            :raises: Возможны другие исключения во вложенных служебных методах (подробно смотрите в их описании).
+            :param comment: A comment to be written to an entity in the database.
+            :return: None, in case of a successful write to the database.
+            :rtype: Note.
+            :raises: Other exceptions are possible in nested utility methods (see their description for details).
         """
 
         self._create_comment(type_comment='TABLE', comment_value=comment)
 
     def set_view_comment(self, comment: str) -> None:
         """
-            *** Метод для создания комментариев к представлениям в базе данных. ***
+            *** A method for creating comments on views in the database. ***
 
-            Предназначен для создания комментариев к представлениям в базе данных (в текущей версии библиотеки, только
-            для PostgreSQL).
+            It is intended for creating comments to views in the database (in the current version of the library, only
+            for PostgreSQL).
 
-            * Описание механики:
+            * Description of the mechanics:
 
-                В данном методе используется служебный "self._create_comment()" в качестве вложенного с указанием
-                type_comment='VIEW', обеспечивая выполнение основной логики. (подробно смотрите в его описании).
+                This method uses the service "self._create_comment()" as a nested method with
+                type_comment='VIEW', ensuring the execution of the basic logic. (for more information,
+                see its description).
 
             ***
 
-            * Пример вызова:
+            * Example of a call:
 
                 comments = Tcommenter(engine=ENGINE, name_table='sales', schema='audit')
-                comments.set_view_comment('Этот комментарий будет записан к представлению в метаданные.')
+                comments.set_view_comment('This comment will be written to the metadata representation.')
 
             ***
 
-            :param comment: Комментарий, который необходимо записать к сущности в базе данных.
-            :return: None, в случае успешной записи в базу данных.
-            :rtype: None.
-            :raises: Возможны другие исключения во вложенных служебных методах (подробно смотрите в их описании).
+            :param comment: A comment to be written to an entity in the database.
+            :return: None, in case of a successful write to the database.
+            :rtype: Note.
+            :raises: Other exceptions are possible in nested utility methods (see their description for details).
         """
 
         self._create_comment(type_comment='VIEW', comment_value=comment)
 
     def set_materialized_view_comment(self, comment: str) -> None:
         """
-            *** Метод для создания комментариев к материализованным представлениям в базе данных. ***
+            ***A method for creating comments on materialized views in a database. ***
 
-            Предназначен для создания комментариев к представлениям в базе данных (в текущей версии библиотеки, только
-            для PostgreSQL).
+            It is intended for creating comments to views in the database (in the current version of the library, only
+            for PostgreSQL).
 
-            * Описание механики:
+            * Description of the mechanics:
 
-                В данном методе используется служебный "self._create_comment()" в качестве вложенного с указанием
-                type_comment='MATERIALIZED', обеспечивая выполнение основной логики. (подробно смотрите
-                в его описании).
+                This method uses the service "self._create_comment()" as a nested method with
+                type_comment='MATERIALIZED', ensuring the execution of the basic logic. (for more information, see
+                in his description).
 
             ***
 
-            * Пример вызова:
+            * Example of a call:
 
                 comments = Tcommenter(engine=ENGINE, name_table='sales', schema='audit')
                 comments.set_materialized_view_comment(
-                    'Этот комментарий будет записан к материализованному представлению в метаданные.'
+                    'This comment will be written to the materialized representation in the metadata.'
                 )
 
             ***
 
-            :param comment: Комментарий, который необходимо записать к сущности в базе данных.
-            :return: None, в случае успешной записи в базу данных.
-            :rtype: None.
-            :raises: Возможны другие исключения во вложенных служебных методах (подробно смотрите в их описании).
+            :param comment: A comment to be written to an entity in the database.
+            :return: None, in case of a successful write to the database.
+            :rtype: Note.
+            :raises: Other exceptions are possible in nested utility methods (see their description for details).
         """
 
         self._create_comment(type_comment='MATERIALIZED', comment_value=comment)
 
     def set_column_comment(self, **comments_columns: str) -> None:
         """
-            *** Метод для создания комментариев к колонкам в базе данных. ***
+            *** A method for creating comments on columns in the database. ***
 
-            Предназначен для создания комментариев к колонкам сущностей (таблиц, представлений, и т.д.) в базе данных
-            (в текущей версии библиотеки, только для PostgreSQL).
-            Практически одинаков с "_self.set_column_comment()", разница лишь в местах применения (данный метод
-            используется в качестве публичного по прямому назначению) и типе принимаемого аргумента (принимает kwargs).
+            Designed to create comments on columns of entities (tables, views, etc.) in a database
+            (in the current version of the library, only for PostgreSQL).
+            It is almost the same as "_self.set_column_comment()", the only difference is in the places of application
+            (this method used as public for its intended purpose) and the type of argument being accepted
+            (accepts kwargs).
 
 
-            * Описание механики:
+            * Description of the mechanics:
 
-                В данном методе используется служебный "self._create_comment()" в качестве вложенного с указанием
-                type_comment='COLUMN', обеспечивая выполнение основной логики. (подробно смотрите в его описании).
-                Осуществляя итерирование по всему словарю, поочередно записывается комментарии к колонкам (sql
-                синтаксис обеспечивает запись только к одной колонке).
+                This method uses the service "self._create_comment()" as a nested method with
+                type_comment='COLUMN', ensuring the execution of the basic logic. (for more information,
+                see its description). By iterating through the entire dictionary, column comments are written one at a
+                time (SQL syntax provides entry to only one column).
 
             ***
 
-            * Пример вызова:
+            * Example of a call:
 
-                params = {'sales': 'Этот комментарий будет записан для колонки в метаданные.'}
+                params = {'sales':'This comment will be recorded in the metadata for the column.'}
                 self._set_column_comment(params)
 
             ***
 
             :param  comments_columns: kwargs (
-                ключ: имя колонки,
-                значение: комментарии, который необходимо записать к колонке в базе данных
+                key: column name,
+                value: comments to be written to a column in the database
                 ).
-            :return: None, в случае успешной записи в базу данных.
-            :rtype: None.
-            :raises: Возможны другие исключения во вложенных служебных методах (подробно смотрите в их описании).
+            :return: None, in case of a successful write to the database.
+            :rtype: Note.
+            :raises: Other exceptions are possible in nested utility methods (see their description for details).
         """
 
         for key_name_column, value_comment in comments_columns.items():
@@ -764,31 +779,32 @@ class Tcommenter:
 
     def get_table_comments(self, service_mode: bool = False) -> str | dict[str, str]:
         """
-            *** Метод для получения комментариев к таблицам (и к другим сущностям, кроме колонок) в базе данных. ***
+            *** A method for getting comments on tables (and other entities other than columns) in a database. ***
 
-            Предназначен для получения комментариев к таблицам и другим сущностям, таким как представлениям |
-            материализованным представлениям | ... (имя метода лишь явно указывает на отличие от метода получения
-            комментариев к колонкам) в базе данных (в текущей версии библиотеки, только для PostgreSQL).
+            It is intended for receiving comments on tables and other entities, such as views |
+            materialized representations | ... (the name of the method only explicitly indicates the difference from
+            the method of obtaining column comments) in the database (in the current version of the library,
+            only for PostgreSQL).
 
-            * Описание механики:
+            * Description of the mechanics:
 
-                В данном методе используется вложенный служебный "self._reader()". Он получает "self.name_entity"
-                из "__init__" в качестве значения для плейсхолдера в sql запросе на получение комментариев из
-                служебных таблиц PostgreSQL, отвечающих за хранение различной статистики и метаданных
+                This method uses the nested service "self._reader()". It gets "self.name_entity"
+                from "__init__" as the value for the placeholder in an SQL query for comments from
+                PostgreSQL service tables responsible for storing various statistics and metadata.
                 (tps://postgrespro.ru/docs/postgresql/14/monitoring-stats).
 
-                Далее, результат ответа преобразуется:
-                    либо в строку с комментарием - по умолчанию (service_mode=False),
-                    либо если service_mode=True в словарь типа {'table': 'table_comment'}.
+                Next, the response result is converted:
+                either to a string with a comment - by default (service_mode=False),
+                    or if service_mode=True to a dictionary of type {'table': 'table_comment'}.
 
-                Режим service_mode=True предназначен для предоставления выходных данных совместимых с методом
-                "save_comments()", в случае, если необходима перегрузка комментариев (сначала получить, а после вашей
-                промежуточной логики) сразу же сохранить в ту же или другую сущность (с той же структурой).
-                Подробнее смотрите описание "save_comments()".
+                Mode "service_mode"=True is intended to provide output data compatible with the method
+                "save_comments()", in case it is necessary to overload the comments (first receive, and then your
+                intermediate logic) immediately save to the same or another entity (with the same structure).
+                For more information, see the description of "save_comments()".
 
             ***
 
-            * Пример вызова:
+            * Example of a call:
 
                 comments = Tcommenter(engine=ENGINE, name_table='sales', schema='audit')
 
@@ -800,26 +816,26 @@ class Tcommenter:
 
             ***
 
-            :param service_mode: "Переключатель" вида выходных данных, по умолчанию False.
-            :return: Если service_mode=False -> str (строка с комментарием к таблице), \
-                если service_mode=True -> dict[str, str].
+            :param service_mode: The "Switch" of the output type, by default False.
+            :return: If service_mode=False -> str (row with table comment), \
+                if service_mode=True -> dict[str, str].
             :rtype: str | dict[str, str].
-            :raises: Возможны другие исключения во вложенных служебных методах (подробно смотрите в их описании).
+            :raises: Other exceptions are possible in nested utility methods (see their description for details).
         """
 
-        # Валидация str_mode:
+        # str_mode validation:
         service_mode = self._validator(service_mode, bool)
 
-        # Получаем сырые данные после запроса (список кортежей):
+        # Getting the raw data after the request (list of tuples):
         table_comment_tuple_list: list[tuple] = self._reader(
             SQL_GET_TABLE_COMMENTS, name_entity=self.name_entity
         )
 
-        # Преобразуем (обращаемся к первому элементу в списке (к кортежу, будет всего один всегда) и распаковываем:
+        # Convert (refer to the first element in the list (to a tuple, there will always be only one) and unpack:
         if table_comment_tuple_list:
             table_comment = table_comment_tuple_list[0][0]
         else:
-            table_comment = ''  # Если комментарий отсутствует, возвращаем пустую строку.
+            table_comment = ''  # If there is no comment, we return an empty string.
 
         if service_mode is False:
             return table_comment
@@ -831,35 +847,34 @@ class Tcommenter:
                             service_mode: bool = False
                             ) -> dict[str, str] | dict[str, dict[str, str]]:
         """
-            *** Метод для получения комментариев к колонкам по их имени или по индексу для сущностей базы данных. ***
+            *** A method for getting comments on columns by their name or by index for database entities. ***
 
-            Предназначен для получения комментариев к колонкам различных сущностей, таких как представления |
-            материализованные представления | ... в базе данных (в текущей версии библиотеки, только для PostgreSQL).
+            It is intended for receiving comments on columns of various entities, such as views |
+            materialized views | ... in the database (in the current version of the library, only for PostgreSQL).
 
-            * Описание механики:
+            * Description of the mechanics:
 
-                В данном методе используется вложенный служебный "self._reader()". Он получает "self.name_entity"
-                из "__init__", а так же переданные пользователем "*column_index_or_name" - имя или индекс требуемой
-                колонки в качестве значений для плейсхолдеров в sql запросе. Комментарии к сущностям хранятся
-                в служебных таблицах PostgreSQL, отвечающих за обработку различной статистики и метаданных
+                This method uses the nested service "self._reader()". He gets "self.name_entity"
+                from "__init__", as well as the "*column_index_or_name" passed by the user - the name or index of
+                the required columns as values for placeholders in an SQL query. Comments on entities are stored
+                in PostgreSQL service tables responsible for processing various statistics and metadata
                 (tps://postgrespro.ru/docs/postgresql/14/monitoring-stats).
 
-                Далее, результат ответа преобразуется:
-                    либо в словарь типа ({'columns': {'column_name': 'comment'}}) - по умолчанию (service_mode=False),
-                    либо если service_mode=True в словарь типа {'column_name': 'comment'}.
+                Next, the response result is converted:
+                either to a dictionary of the type ({'columns': {'column_name': 'comment'}}) - by default
+                (service_mode=False), or if service_mode=True to the dictionary type {'column_name': 'comment'}.
 
-                Режим service_mode=True предназначен для предоставления выходных данных совместимых с методом
-                "save_comments()", в случае, если необходима перегрузка комментариев (сначала получить, а после вашей
-                промежуточной логики) сразу же сохранить в ту же или другую сущность (с той же структурой).
-                Подробнее смотрите описание "save_comments()".
-
-                Важно!
-                Если передать в параметры совместно и индекс и имя колонки - это вызовет исключение! Метод обрабатывает
-                параметры только одного типа (либо только индексы, либо имена колонок).
+                service_mode mode=True is intended to provide output data compatible with the method
+                "save_comments()", in case it is necessary to overload the comments (first receive, and then your
+                intermediate logic) immediately save to the same or another entity (with the same structure).
+                For more information, see the description of "save_comments()".
+                Important!
+                If you pass both the index and the column name to the parameters together, this will cause an exception!
+                The method processes there is only one type of parameter (either indexes only or column names).
 
             ***
 
-            * Пример вызова:
+            * Example of a call:
 
                 comments = Tcommenter(engine=ENGINE, name_table='sales', schema='audit')
 
@@ -871,24 +886,24 @@ class Tcommenter:
 
             ***
 
-            :param column_index_or_name: *args - индексы или имена колонок, для которых требуется считать комментарии.
-            :param service_mode: "Переключатель" вида выходных данных, По умолчанию False.
-            :return: Если service_mode=False -> dict[str, str], если service_mode=True -> dict[str, dict[str, str]].
+            :param column_index_or_name: *args - indexes or column names for which comments should be counted.
+            :param service_mode: The "Switch" of the output type, By default False.
+            :return: If service_mode=False -> dict[str, str], if service_mode=True -> dict[str, dict[str, str]].
             :rtype: dict[str, str] | dict[str, dict[str, str]].
-            :raises: Возможны другие исключения во вложенных служебных методах (подробно смотрите в их описании).
+            :raises: Other exceptions are possible in nested utility methods (see their description for details).
         """
 
-        # Значение по умолчанию - получаем все комментарии к колонкам в таблице (без указания индекса или имени):
+        # Default value - we get all the comments to the columns in the table (without specifying the index or name):
         param_column_index_or_name: tuple[int | str] | None = None or column_index_or_name
 
         if param_column_index_or_name:
 
-            # Получаем sql (или для имен, или для индексов) и и список параметров:
+            # We get sql (either for names or indexes) and a list of parameters:
             sql, params_list_only_from_indexes_or_name = self._get_sql_and_params_list_only_from_indexes_or_names(
                 param_column_index_or_name
             )
 
-            # Передаем уточненные sql и параметры:
+            # Passing the updated sql and parameters:
             column_comments_tuple_list: list[tuple] = self._reader(
                 sql,
                 name_entity=self.name_entity,
@@ -897,14 +912,14 @@ class Tcommenter:
 
         else:
 
-            # Передаем sql для извлечения всех комментариев без параметров:
+            # Passing sql to extract all comments without parameters:
             column_comments_tuple_list: list[tuple] = self._reader(
                 SQL_GET_ALL_COLUMN_COMMENTS,
                 name_entity=self.name_entity
             )
 
-        # Генерация словаря из списка кортежей:
-        # Распаковывает кортеж из 2-х элементов (1, 'Alice') принимая первый за key и второй за value:
+        # Generating a dictionary from a list of tuples:
+        # Unpacks a tuple of 2 elements (1, 'Alice'), taking the first as key and the second as value:
         _column_comments_dict = {key: value for key, value in column_comments_tuple_list}
 
         if service_mode is False:
@@ -914,18 +929,19 @@ class Tcommenter:
 
     def get_all_comments(self) -> dict[str, str | dict]:
         """
-            *** Метод для получения всех комментариев для сущности (к ней и ее колонкам) базы данных. ***
+            *** A method for getting all comments for an entity (to it and its columns) in the database. ***
 
-            Предназначен для получения всех имеющихся комментариев для сущности (представления | материализованного
-            представления | ...), ее собственных и к колонкам (в текущей версии библиотеки, только для PostgreSQL).
+            It is intended to receive all available comments for an entity (representation| materialized
+            views | ...), its own, and columns (in the current version of the library, only for PostgreSQL).
 
-            * Описание механики:
-                Основная и единственная логика заключается в сложении двух словарей полученных в результате работы
-                "get_table_comments()" и  "get_column_comments()" с service_mode=True.
+            * Description of the mechanics:
+
+                The main and only logic is to add two dictionaries obtained as a result of the work.
+                "get_table_comments()" and "get_column_comments()" with service_mode=True.
 
             ***
 
-            * Пример вызова:
+            * Example of a call:
 
                 comments = Tcommenter(engine=ENGINE, name_table='sales', schema='audit')
 
@@ -937,88 +953,88 @@ class Tcommenter:
 
             :return: {'table': 'table_comment', 'columns': {'column_1': 'column_1_comment', ...}}.
             :rtype: dict[str, str | dict].
-            :raises: Возможны другие исключения во вложенных служебных методах (подробно смотрите в их описании).
+            :raises: There may be other exceptions in nested utility methods (see their description for details).
         """
 
-        # Получение всех комментариев:
+        # Getting all the comments:
         table_comment = self.get_table_comments(service_mode=True)
         column_comments_dict = self.get_column_comments(service_mode=True)
 
-        # Преобразование полученных данных в единый словарь:
+        # Converting the received data into a single dictionary:
         all_comments_table_dict = table_comment | column_comments_dict
 
         return all_comments_table_dict  # на выходе: {'table': set_table_comment, 'columns': column_comments_dict}
 
     def save_comments(self, comments_dict: dict[str, str | dict]) -> None:  # Self , schema: str
         """
-            *** Метод для сохранения комментариев любого типа (к сущностям или их колонкам) в базу данных. ***
+            *** A method for saving comments of any type (to entities or their columns) to a database. ***
 
-            Предназначен для сохранения комментариев любого типа (к сущностям или их колонкам) в базу данных (в текущей
-            версии библиотеки, только для PostgreSQL). Метод "save_comments()" является универсальным, он автоматически
-            определяет для каткого типа сущности предназначаются комментарии, что делает его полезным, когда необходимо
-            сохранить сразу все метаданные разом и для колонок и для сущностей, вызвав всего один метод.
-            Применяется в случае, если необходима перегрузка комментариев (сначала получить, а после вашей
-            промежуточной логики) сразу же сохранить в ту же или другую сущность (с той же структурой).
+            It is intended for saving comments of any type (to entities or their columns) to the database (in the
+            current library versions, only for PostgreSQL). The "save_comments()" method is universal, it is automatic
+            defines which type of entity comments are intended for, which makes it useful when needed.
+            save all metadata at once for both columns and entities by calling just one method.
+            It is used if it is necessary to overload the comments (first to receive, and after your
+            intermediate logic) immediately save to the same or another entity (with the same structure).
 
-            * Описание механики:
+            * Description of the mechanics:
 
-                Выходные данные вида "сервисной структуры" (в методах получения комментариев необходимо установить
-                service_mode=True): {'columns': {...}} | {'table': 'table_comment'}, обеспечивают корректную их
-                обработку. Ключи 'table' | 'columns' являются маркерами для включения логики обработки конкретного типа
-                комментариев к сущностям или их к колонкам. Далее, в методе автоматически определяется тип сущности и
-                вызовы соответствующих методов для сохранения метаданных.
+                The output data of the "service structure" type (in the methods for receiving comments, you must set
+                service_mode=True): {'columns': {...}} | {'table': 'table_comment'}, ensure their correct operation
+                processing. The 'table' | 'columns' keys are markers for enabling specific type of processing logic
+                comments on entities or their columns. Next, the method automatically determines the type of entity
+                and calls the appropriate methods to save metadata.
 
             ***
 
-            * Пример вызова:
+            * Example of a call:
 
                 comments = Tcommenter(engine=ENGINE, name_table='sales', schema='audit')
 
-                # Вариант 1 (аналогично для данных от get_column_comments())
+                # Option 1 (similar for data from get_column_comments())
                 # -> {'table': 'comment'}.
                 comment_table_dict = comments.get_table_comments(service_mode=True)
                 comments.save_comments(comment_table_dict)
 
-                # Вариант 2
+                # Option 2
                 # -> {'table': 'table_comment', 'columns': {'column_1': 'column_1_comment', ...}}.
                 comment_table_dict = comments.get_all_comments(service_mode=True)
                 comments.save_comments(comment_table_dict)
 
             ***
 
-            :param comments_dict: Словарь типа:
+            :param comments_dict: Type dictionary:
                 {'table': 'table_comment', 'columns': {'column_1': 'column_1_comment', ...}} |
                 {'table': 'table_comment'} | {'columns': {'column_1': 'column_1_comment', ...}}.
             :return: None.
-            :rtype: None.
-            :raises ValueError: Будет вызвано исключение, если будет попытка сохранения комментариев к типу сущности \
-                не предусмотренному в текущей реализации библиотеки. Метод предусматривает работу только с таблицами, \
-                представлениями и материализованными представлениями.
-                Возможны другие исключения во вложенных служебных методах (подробно смотрите в их описании).
+            :rtype: Note.
+            :raise ValueError: An exception will be thrown if an attempt is made to save comments on the entity type. \
+                not provided in the current library implementation. The method only works with tables, \
+            views, and materialized views.
+                There may be other exceptions in nested utility methods (see their description for details).
         """
 
-        # Если переданный аргумент не пустой:
         if comments_dict:
 
-            # Валидация на тип данных входных аргументов (только если словарь, продолжаем дальше обработку):
+            # Validation for the data type of input arguments \
+            # (only if there is a dictionary, we continue processing further):
             comments_dict = self._validator(comments_dict, dict)
 
-            # Определение типа сущности (варианты: 'table', 'view', 'mview'):
+            # # Defining the type of entity (options: 'table', 'view', 'view'):
             type_entity = self.get_type_entity()
 
-            # Проводим валидацию (исключаем работу с сущностями базы данных неподдерживаемыми методом):
+            # We perform validation (we exclude working with database entities that are unsupported by the method):
             if type_entity not in ('table', 'view', 'mview'):
                 raise ValueError(
-                    f'Ошибка: невозможно сохранить комментарий к сущности, указанной в экземпляре класса! Метод '
-                    f'предусматривает работу только с таблицами, представлениями и материализованными представлениями. '
-                    f'Тип сущности {type_entity}, схема: "{self.schema}", имя: "{self.name_entity}").'
+                    f'Error: It is impossible to save a comment to the entity specified in the class instance! '
+                    f'The method only works with tables, views, and materialized views. '
+                    f'Entity type {type_entity}, schema: "{self.schema}", name: "{self.name_entity}").'
 
                 )
 
-            # Анализ входных данных:
+            # Input data analysis:
             for key, value in comments_dict.items():
 
-                # Если во входных данных присутствуют комментарии к сущностям:
+                # If the input data contains comments on entities:
                 if key == 'table':
 
                     if type_entity == 'table':
@@ -1030,40 +1046,44 @@ class Tcommenter:
                     elif type_entity == 'mview':
                         self.set_materialized_view_comment(value)
 
-                # Если во входных данных присутствуют комментарии к колонкам сущностей:
+                # If the input data contains comments on the entity columns:
                 elif key == 'columns':
 
-                    # Проверка на пустоту и валидация:
+                    # Void checking and validation:
                     if self._validator(value, dict):
 
-                        # Принимает словарь, метод принимает dict:
+                        # The method accepts a dictionary:
                         self._set_column_comment(value)
 
                     else:
-                        raise ValueError(f'Ошибка: отсутствуют данные для обработки (комментарии для колонок)! '
-                                         f'Получено: {comments_dict}!')
+                        raise ValueError(f'Error: there is no data to process (comments for columns)! '
+                                         f'Received: {comments_dict}!')
 
 
                 else:
                     structure = "{'columns': {...}} | {'table': 'table_comment'} | {'columns': {...}, \
                     table': 'table_comment'}"
-                    raise ValueError(f'Ошибка: переданный аргумент "comments_dict" не соответствует требуемой '
-                                     f'сервисной структуре входных данных, установленной в методе для правильной '
-                                     f'работы! Нормальная "сервисная структура" имеет вид: {structure}. '
-                                     f"Получено: {comments_dict}"
-                                     )
+                    raise ValueError(
+                        f'Error: The passed "comments_dict" argument does not match the required input data service '
+                        f'structure set in the method for proper operation! The normal "service structure" '
+                        f'looks like this: {structure}. Received: {comments_dict}'
+                    )
 
         else:
-            raise ValueError(f'Ошибка: отсутствуют данные для обработки! '
-                             f'Переданный аргумент "comments_dict" не содержит информации: "{comments_dict}".')
+            raise ValueError(
+                f'Error: data is being deleted for processing! '
+                f'The passed argument "comments_dict" does not contain information:"{comments_dict}".'
+            )
 
     def __str__(self):
-        return (f'{self.__class__.__name__}(schema: {self.schema},'
-                f' name_table: {self.name_entity}, engine: {self.engine}).'
-                )
+        return (
+            f'{self.__class__.__name__}(schema: {self.schema},'
+            f' name_table: {self.name_entity}, engine: {self.engine}).'
+        )
 
     def __repr__(self):
-        return (f'{self.__class__.__name__}(schema: {self.schema},'
-                f' name_table: {self.name_entity}, engine: {self.engine}).'
-                )
+        return (
+            f'{self.__class__.__name__}(schema: {self.schema},'
+            f' name_table: {self.name_entity}, engine: {self.engine}).'
+        )
 # ----------------------------------------------------------------------------------------------------------------------
