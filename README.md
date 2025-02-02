@@ -1,4 +1,15 @@
-> # <p align="center">Tcommenter</p>
+
+<a id="readme-top"></a>
+
+
+
+
+
+<!-- PROJECT SHIELDS --> 
+> # <p align="center">**T-COMMENTER**</p>
+
+
+
 
 [![Contributors][contributors-shield]][contributors-url]
 [![Forks][forks-shield]][forks-url]
@@ -6,13 +17,18 @@
 [![Issues][issues-shield]][issues-url]
 [![MIT License][license-shield]][license-url]
 
+<div style="text-align: center;">
+    <img src="docs/images/t-commenter.png" style="width: 500px; height: 300px;" alt="LOGO">
+</div> 
+
+
 ## About the project
 
-    The "Tcommenter" library is designed to create comments on tables (and other entities) in a database (in the 
-    current version of the library, only for PostgreSQL). Tcommenter - это видоизмененное сокращение от "Table 
-    Commentator". In this context, the meaning of the word table has a broader meaning than the direct one, and 
-    covers objects such as a view, materialized view (other types of objects are ignored in the current 
-    implementation).
+    The T-commenter library is based on the SQLAlchemy library and is designed to create comments on tables (and other
+    objects) in a database (in the current version of the library, it is only for PostgreSQL) T-commenter - this is a 
+    modified abbreviation от "Table Commentator". In this context, the meaning of the word table has a broader meaning 
+    than the direct one, and covers objects such as a view, materialized view (other types of objects are ignored in 
+    the current implementation). 
 
     Initially, the library was conceived as a tool for working with metadata in DAGs (DAG - Directed Acyclic Graph,
     https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/dags.html) "Apache Airflow". The need to
@@ -26,13 +42,14 @@
 ## Installation
 You can install the library using pip:
 ```sh
-pip install tcommenter
+   pip install tcommenter
 ```
 
-[//]: # (## <p align="center"> Примеры использования</p> )
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 ## Usage
 
-[//]: # (- Создание экземпляра Tcommenter)
+
 #### <p align="center">Creating an instance Tcommenter</p>
 ```python
 from tcommenter import Tcommenter
@@ -85,6 +102,8 @@ print(comments)  # -> '{'table': 'pass', 'columns': {'dag_id': 'pass', 'descript
 
 ````
 
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 [//]: # (- Metadata recording methods:)
 #### <p align="center">Metadata recording methods</p>
 
@@ -110,6 +129,8 @@ print(comments)  # -> {'dag_id': 'dag_id_test', 'description': 'description_test
 
 ````
 
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 [//]: # (# -------------------------------Service methods:)
 #### <p align="center">Service methods</p>
 
@@ -120,6 +141,8 @@ type_entity = commenter.get_type_entity()
 print(type_entity)  # -> 'table'
 
 ````
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 [//]: # (# ------------------------------- Examples of metadata overload:)
 #### <p align="center">Examples of metadata overload</p>
@@ -166,68 +189,51 @@ commenter.save_comments(comments)
 ````
 
 
-<!-- LICENSE -->
-## License
+## Examples
 
-Distributed under the MIT License. See `LICENSE.txt` for more information.
+ - Download the examples file: [`examples/example_usage.py`][examples-url]
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+<!-- LICENSE -->
+## License
 
+- Distributed under the MIT License. See [`LICENSE.txt`][license-tx]
 
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+## Clone the repo
 
+    git clone https://github.com/ArtemXYZ/tcommenter.git
 
+<!-- CONTACT -->
+## Contact
 
+- GitHub - [ArtemXYZ](https://github.com/ArtemXYZ)  
+- Telegram - [ArtemP_khv](https://t.me/ArtemP_khv)
 
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+<!-- MARKDOWN LINKS ------------------------------------------------------------------------------------------------->
 
+[contributors-shield]:  https://img.shields.io/github/contributors/ArtemXYZ/tcommenter.svg?style=for-the-badge
+[contributors-url]: https://github.com/ArtemXYZ/tcommenter/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/ArtemXYZ/tcommenter.svg?style=for-the-badge
+[forks-url]: https://github.com/ArtemXYZ/tcommenter/network/members
+[stars-shield]: https://img.shields.io/github/stars/ArtemXYZ/tcommenter.svg?style=for-the-badge
+[stars-url]: https://github.com/ArtemXYZ/tcommenter/stargazers
+[issues-shield]: https://img.shields.io/github/issues/ArtemXYZ/tcommenter.svg?style=for-the-badge
+[issues-url]: https://github.com/ArtemXYZ/tcommenter/issues
 
+<!-- License -->
 
+[license-shield]: https://img.shields.io/github/license/ArtemXYZ/tcommenter.svg?style=for-the-badge
+[license-url]: https://github.com/ArtemXYZ/tcommenter/blob/master/LICENSE.txt
+[license-tx]: https://github.com/ArtemXYZ/tcommenter/blob/development_0_2_1v/LICENSE
 
+<!-- examples -->
 
+[examples-url]: https://github.com/ArtemXYZ/tcommenter/blob/development_0_2_1v/examples/example_usage.py
 
+<!-- MARKDOWN LINKS ------------------------------------------------------------------------------------------------->
 
-
-
-
-[//]: # ()
-[//]: # (1. Get a free API Key at [https://example.com]&#40;https://example.com&#41;)
-
-[//]: # (2. Clone the repo)
-
-[//]: # (   ```)
-
-[//]: # (   git clone https://github.com/github_username/repo_name.git)
-
-[//]: # (   ```)
-
-[//]: # ()
-[//]: # ( - A module for working with table metadata &#40;comments on tables, views, materialized views, and columns&#41;)
-
-[//]: # (                in PostgreSQL.)
-
-[//]: # (<div style="text-align: center;">)
-
-[//]: # (    <img src="images/HR_BOT.png" style="width: 500px; height: 300px;" alt="Hr Bot">)
-
-[//]: # (</div>)
-
-
-<!-- License | Лицензия -->
-[license-shield]: https://img.shields.io/github/license/ArtemXYZ/mv_pars.svg?style=for-the-badge
-[license-url]: https://github.com/ArtemXYZ/mv_pars/blob/master/LICENSE.txt
-
-<!-- Logo | Лого  + [product-screenshot]: -->
-[main_logo]: docs/images_project/logo.png
-[logo_mini]: docs/images_project/lg.png
-
-<!-- Logo + page home lib | Ссылки на библиотеки, используемые в разработке -->
-[Next.js]: https://img.shields.io/badge/next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white
-[Next-url]: https://nextjs.org/
-[React.js]: https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB
-[React-url]: https://reactjs.org/
-
-[//]: # (В этом контексте значение слова таблица имеет более широкое значение, 
-помимо прямого, и охватывает такие объекты, как материализованный вид
-(другие типы объектов игнорируются в текущей реализации).)

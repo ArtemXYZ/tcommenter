@@ -78,7 +78,7 @@ class Fixtures:
 class TestMethodsTcommenterNoExecuteSQL(Fixtures):  # (Fixtures)
     """
         Тестирование методов не требующих извлечения информации из бд (нет .execute()).
-        Либо наследование либо # @pytest.mark.usefixtures("mocked_engine",  "test_class").
+        Либо наследование, либо # @pytest.mark.usefixtures("mocked_engine", "test_class").
     """
 
     # Перегружаем класс для удобства:
@@ -304,3 +304,5 @@ class TestMethodsTcommenterExecuteSQL(Fixtures):
 # ================
 # row_sql_recorder
 # recorder
+
+
