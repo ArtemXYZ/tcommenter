@@ -24,8 +24,8 @@
 
 ## About the project
 
-    The T-commenter library is based on the SQLAlchemy library and is designed to create comments on tables (and other
-    objects) in a database (in the current version of the library, it is only for PostgreSQL) T-commenter - this is a 
+    The Tcommenter library is based on the SQLAlchemy library and is designed to create comments on tables (and other
+    objects) in a database (in the current version of the library, it is only for PostgreSQL) Tcommenter - this is a 
     modified abbreviation от "Table Commentator". In this context, the meaning of the word table has a broader meaning 
     than the direct one, and covers objects such as a view, materialized view (other types of objects are ignored in 
     the current implementation). 
@@ -203,9 +203,9 @@ commenter.save_comments(comments)
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## Clone the repo
-
-    git clone https://github.com/ArtemXYZ/tcommenter.git
-
+````
+git clone https://github.com/ArtemXYZ/tcommenter.git
+````
 <!-- CONTACT -->
 ## Contact
 

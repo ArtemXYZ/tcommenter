@@ -16,24 +16,24 @@
 
 # ----------------------------------------------------------------------------------------------------------------------
 import re
-from typing import TypeVar  # , Union
+from typing import TypeVar
 
-# ---------------------------------- Импорт сторонних библиотек
+# ---------------------------------- Importing third-party libraries
 from sqlalchemy.engine import Engine
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql.elements import TextClause
 
-# -------------------------------- Локальные модули
+# -------------------------------- Local modules
 from .sql.postgre_sql import *
 
-any_types = TypeVar('any_types')  # Создаем обобщённый тип данных.
+any_types = TypeVar('any_types')  # Creating a generalized data type.
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-class Tcommenter:
+class Tcommenter: # TableCommenter
     """
-        "TCommenter" contains the necessary methods for creating, extracting, and overloading comments to tables
+        "Tcommenter" contains the necessary methods for creating, extracting, and overloading comments to tables
         (and other entities), columns in the database (in the current version of the library, only for PostgreSQL).
     """
 
@@ -298,7 +298,7 @@ class Tcommenter:
     def _get_sql_and_params_list_only_from_indexes_or_names(
             self,
             param_column_index_or_name: tuple[int | str] | None
-    ) -> tuple[str, list[int | str]]:
+    ) -> tuple[str, list[int | str]] | None:
         """
             *** A private method for validating column names or their indexes passed to the query as parameters. ***
 
@@ -837,10 +837,7 @@ class Tcommenter:
         else:
             table_comment = ''  # If there is no comment, we return an empty string.
 
-        if service_mode is False:
-            return table_comment
-        elif service_mode is True:
-            return {'table': table_comment}
+        return {'table': table_comment} if service_mode else table_comment
 
     def get_column_comments(self,
                             *column_index_or_name: int | str,
@@ -893,6 +890,8 @@ class Tcommenter:
             :raises: Other exceptions are possible in nested utility methods (see their description for details).
         """
 
+        self._validator(service_mode, bool)
+
         # Default value - we get all the comments to the columns in the table (without specifying the index or name):
         param_column_index_or_name: tuple[int | str] | None = None or column_index_or_name
 
@@ -922,10 +921,7 @@ class Tcommenter:
         # Unpacks a tuple of 2 elements (1, 'Alice'), taking the first as key and the second as value:
         _column_comments_dict = {key: value for key, value in column_comments_tuple_list}
 
-        if service_mode is False:
-            return _column_comments_dict
-        elif service_mode is True:
-            return {'columns': _column_comments_dict}  # {'columns': {column: comments} }
+        return {'columns': _column_comments_dict} if service_mode else _column_comments_dict
 
     def get_all_comments(self) -> dict[str, str | dict]:
         """

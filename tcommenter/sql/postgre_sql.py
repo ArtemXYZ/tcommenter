@@ -1,13 +1,10 @@
 """
-    Модуль содержит SQL-запросы к таблицам со статистикой в соответствии с синтаксисом одноименной СУБД.
+    The module contains SQL queries to tables with statistics in accordance with the syntax of the DBMS of the
+    same name.
 """
 
-
-# COMMENT ON TABLE "schema"."table" IS 'comment'  для любой сущности (таблица, представление, ...)
 SQL_SAVE_COMMENT = """COMMENT ON {entity_type} "{schema}"."{name_entity}" IS :comment"""
 
-
-# COMMENT ON COLUMN "schema"."name_entity"."name_column" IS 'comment' # Для колонок в любой сущности: # COLUMN
 SQL_SAVE_COMMENT_COLUMN = """COMMENT ON {entity_type} "{schema}"."{name_entity}"."{name_column}" IS :comment"""
 
 SQL_GET_TABLE_COMMENTS = """
@@ -114,14 +111,3 @@ SQL_CHECK_TYPE_ENTITY = """
     WHERE		
     all_entity.relname = :name_entity	
 """
-
-
-
-# ---------------------- old
-
-# COMMENT ON TABLE "schema"."table" IS 'comment' для любой сущности (таблица, представление, ...)
-# SQL_SAVE_COMMENT = """COMMENT ON {0} "{1}"."{2}" IS '{3}'"""  # TABLE
-
-
-# COMMENT ON COLUMN "schema"."table"."name_table" IS 'comment' # Для колонок в любой сущности:
-# SQL_SAVE_COMMENT_COLUMN = """COMMENT ON {0} "{1}"."{2}"."{3}" IS '{4}'"""  # COLUMN
