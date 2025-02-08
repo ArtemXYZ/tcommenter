@@ -198,11 +198,12 @@ commenter.save_comments(comments)
 <!-- LICENSE -->
 ## License
 
-- Distributed under the MIT License. See [`LICENSE.txt`][license-tx]
+- Distributed under the MIT License. See [`LICENSE`][license-url]
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## Clone the repo
+
 ````
 git clone https://github.com/ArtemXYZ/tcommenter.git
 ````
@@ -228,12 +229,12 @@ git clone https://github.com/ArtemXYZ/tcommenter.git
 <!-- License -->
 
 [license-shield]: https://img.shields.io/github/license/ArtemXYZ/tcommenter.svg?style=for-the-badge
-[license-url]: https://github.com/ArtemXYZ/tcommenter/blob/master/LICENSE.txt
-[license-tx]: https://github.com/ArtemXYZ/tcommenter/blob/development_0_2_1v/LICENSE
+[license-url]: https://github.com/ArtemXYZ/tcommenter/blob/master/LICENSE
+
 
 <!-- examples -->
 
-[examples-url]: https://github.com/ArtemXYZ/tcommenter/blob/development_0_2_1v/examples/example_usage.py
+[examples-url]: https://github.com/ArtemXYZ/tcommenter/blob/master/examples/example_usage.py
 
 <!-- MARKDOWN LINKS ------------------------------------------------------------------------------------------------->
 
